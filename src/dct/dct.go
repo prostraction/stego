@@ -1,7 +1,5 @@
 package dct
 
-import "fmt"
-
 func pixel(img *[]uint8, x int, y int, width int, channels int8, channelSelected int8) uint8 {
 	return (*img)[int(channelSelected)+(int(channels)*(x+(y*width)))]
 }
@@ -131,7 +129,8 @@ func MakeDCT(dctEmptyMatrix *[]float32, img *[]uint8, xPos int, yPos int, width 
 }
 
 /* Only one channel of image will be procceed */
-func makeIDCT_1D(F *[]int) {
+func makeIDCT_1D(F *[]int) []int {
+	f := make([]int, 8)
 	var p, n int
 	p = (*F)[1] + (*F)[7]
 	n = (*F)[1] - (*F)[7]
@@ -162,14 +161,15 @@ func makeIDCT_1D(F *[]int) {
 	(*F)[2] = n - (*F)[2]
 	(*F)[6] = p - (*F)[6]
 
-	(*f)[0*8] = (*F)[0] + (*F)[1]
-	(*f)[1*8] = (*F)[4] + (*F)[5]
-	(*f)[2*8] = (*F)[2] + (*F)[3]
-	(*f)[3*8] = (*F)[6] + (*F)[7]
-	(*f)[4*8] = (*F)[6] - (*F)[7]
-	(*f)[5*8] = (*F)[2] - (*F)[3]
-	(*f)[6*8] = (*F)[4] - (*F)[5]
-	(*f)[7*8] = (*F)[0] - (*F)[1]
+	f[0] = (*F)[0] + (*F)[1]
+	f[1] = (*F)[4] + (*F)[5]
+	f[2] = (*F)[2] + (*F)[3]
+	f[3] = (*F)[6] + (*F)[7]
+	f[4] = (*F)[6] - (*F)[7]
+	f[5] = (*F)[2] - (*F)[3]
+	f[6] = (*F)[4] - (*F)[5]
+	f[7] = (*F)[0] - (*F)[1]
+	return f
 }
 
 /* Only one channel of image will be procceed */
@@ -193,18 +193,31 @@ func MakeIDCT(dctMatrix *[]float32, img *[]uint8, xPos int, yPos int, width int,
 	idctMatrix := make([]int, 64)
 	idctMatrixOut := make([]int, 64)
 	rows := make([]int, 64)
-	//cols := make([]int, 64, 64)
+	cols := make([]int, 64)
 	for i := 0; i < 64; i++ {
 		idctMatrix[i] = int((*dctMatrix)[i])
 	}
-	fmt.Println(dctMatrix)
-	fmt.Println(idctMatrix)
 
 	rows[0] = (idctMatrix[0] + 4) * scale[0]
 	for i := 1; i < 64; i++ {
 		rows[i] = idctMatrix[i] * scale[i]
 	}
-	fmt.Println(rows)
+
+	for i := 0; i < 8; i++ {
+		row := rows[(i * 8) : (i*8)+8]
+		col := makeIDCT_1D(&row)
+		for j := 0; j < 8; j++ {
+			cols[(j*8)+i] = col[j]
+		}
+	}
+
+	for i := 0; i < 8; i++ {
+		col := cols[(i * 8) : (i*8)+8]
+		row := makeIDCT_1D(&col)
+		for j := 0; j < 8; j++ {
+			rows[(j*8)+i] = row[j]
+		}
+	}
 
 	for i := 0; i < 64; i++ {
 		idctMatrixOut[i] = clipTable[256+((rows[i]>>15)%256)]
