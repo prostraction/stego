@@ -12,8 +12,39 @@ func abs[T int | byte](value T) T {
 	}
 	return value
 }
+func stringToBoolArray(value string) []bool {
+	if len(value) == 0 {
+		return nil
+	}
+	array := make([]bool, 0)
+	for i := 0; i < len(value); i++ {
+		symbol := make([]bool, 0, 8)
+		ch := value[i]
+		counter := 0
+		for ch != 0 {
+			t := ch % 2
+			if t == 0 {
+				symbol = append(symbol, false)
+			} else {
+				symbol = append(symbol, true)
+			}
+			ch /= 2
+			counter++
+		}
+		//fmt.Println(len(symbol))
+		for j := 0; j < 8-counter; j++ {
+			//fmt.Println(j)
+			array = append(array, false)
+		}
+		for j := len(symbol) - 1; j >= 0; j-- {
+			array = append(array, symbol[j])
+		}
+		symbol = nil
+	}
+	return array
+}
 
-func Encode(img *image.RGBA, encodedWord string, pass string, addMod int, negMod int, channels int, channelSelected int) bool {
+func Encode(img *image.RGBA, encodedWord string, pass string, addMod int, negMod int, channelSelected int) bool {
 	bounds := (*img).Bounds()
 	if bounds.Max.X < 8 || bounds.Max.Y < 8 {
 		return false
