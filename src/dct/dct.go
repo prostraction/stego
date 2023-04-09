@@ -131,7 +131,7 @@ func MakeDCT(dctEmptyMatrix *[]float32, img *[]uint8, xPos int, yPos int, width 
 }
 
 /* Only one channel of image will be procceed */
-func makeIDCT_1D(F *[]int, f *[]int) {
+func makeIDCT_1D(F *[]int) {
 	var p, n int
 	p = (*F)[1] + (*F)[7]
 	n = (*F)[1] - (*F)[7]
