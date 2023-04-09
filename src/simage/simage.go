@@ -1,0 +1,5 @@
+package simage
+
+func Image() {
+
+}
