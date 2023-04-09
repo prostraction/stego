@@ -20,7 +20,6 @@ func stringToBoolArray(value string) []bool {
 	for i := 0; i < len(value); i++ {
 		symbol := make([]bool, 0, 8)
 		ch := value[i]
-		counter := 0
 		for ch != 0 {
 			t := ch % 2
 			if t == 0 {
@@ -29,10 +28,9 @@ func stringToBoolArray(value string) []bool {
 				symbol = append(symbol, true)
 			}
 			ch /= 2
-			counter++
 		}
 		//fmt.Println(len(symbol))
-		for j := 0; j < 8-counter; j++ {
+		for j := 0; j < 8-len(symbol); j++ {
 			//fmt.Println(j)
 			array = append(array, false)
 		}
