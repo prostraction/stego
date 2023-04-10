@@ -19,7 +19,7 @@ func StringToBoolArray(value string) []bool {
 	array := make([]bool, 0)
 	runeValue := []rune(value)
 	for i := 0; i < len(runeValue); i++ {
-		symbol := make([]bool, 0, 8)
+		symbol := make([]bool, 0, 32)
 		ch := runeValue[i]
 		for ch != 0 {
 			t := ch % 2
@@ -30,12 +30,13 @@ func StringToBoolArray(value string) []bool {
 			}
 			ch /= 2
 		}
-		for j := 0; j < 8-len(symbol); j++ {
-			array = append(array, false)
+		for j := 0; j < 32-len(symbol); j++ {
+			symbol = append(symbol, false)
 		}
-		for j := len(symbol) - 1; j >= 0; j-- {
-			array = append(array, symbol[j])
+		for j := len(symbol) - 1; len(symbol) != 32; j-- {
+			symbol = append(symbol, symbol[j])
 		}
+		array = append(array, symbol...)
 		symbol = nil
 	}
 	return array
@@ -46,30 +47,30 @@ func BoolArrayToString(value []bool) string {
 		return ""
 	}
 	retString := ""
-	symbol := make([]bool, 0, 8)
+	symbol := make([]bool, 0, 32)
 	count := 1
 	for i := 0; i < len(value); i++ {
 		if symbol == nil {
-			symbol = make([]bool, 0, 8)
+			symbol = make([]bool, 0, 32)
 		}
 		symbol = append(symbol, value[i])
-		if count/8 == 1 {
-			ch := 0x00
-			ind := 7
+
+		if count/32 == 1 {
+			var r rune
 			c := 0
-			for ind >= 0 {
-				if symbol[ind] {
-					ch += (1 << c)
+			for j := 0; j < 32; j++ {
+				if symbol[j] {
+					r += (1 << c)
 				}
-				ind--
 				c++
 			}
-			retString += string(rune(ch))
+			retString += string(r)
 			symbol = nil
 			count = 0
 		}
 		count++
 	}
+
 	return retString
 }
 
@@ -92,6 +93,10 @@ func Encode(img *image.RGBA, encodedWord string, pass string, encodedWordLen int
 	currentSymbol := 0
 	dctMatrix := make([]float32, sizeOfBlock2D)
 	boolEncoded := StringToBoolArray(encodedWord)
+
+	//fmt.Println(boolEncoded)
+	//fmt.Println([]byte(encodedWord))
+
 	if len(boolEncoded) < encodedWordLen {
 		emptySlice := make([]bool, encodedWordLen-len(encodedWord))
 		boolEncoded = append(boolEncoded, emptySlice...)
@@ -112,7 +117,6 @@ func Encode(img *image.RGBA, encodedWord string, pass string, encodedWordLen int
 				pixelIndex3 = validIndexes[pixelIndex3%countValidIndexes]
 			}
 			dct.MakeDCT(&dctMatrix, &(*img).Pix, x, y, bounds.Max.X, 4, int8(channelSelected))
-			//fmt.Println(len(boolEncoded), encodedWordLen)
 			if boolEncoded[currentSymbol%encodedWordLen] {
 				dctMatrix[pixelIndex1] = float32(addMod)
 				dctMatrix[pixelIndex2] = float32(addMod)
@@ -180,9 +184,12 @@ func Decode(img *image.RGBA, pass string, encodedWordLen int, channelSelected in
 		}
 	}
 	msg := BoolArrayToString(codedWordBool)
-	for i := 0; i < len(msg); i++ {
+	for i := len(msg) - 1; i >= 0; i-- {
 		if msg[i] == 0x00 {
-			msg = msg[:i]
+			for msg[i] == 0x00 {
+				i--
+			}
+			msg = msg[:i+1]
 			break
 		}
 	}

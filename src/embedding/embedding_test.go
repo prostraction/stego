@@ -12,9 +12,19 @@ func TestBoolArrayToString(t *testing.T) {
 	fmt.Println("Test: BoolArrayToString is running...")
 	testWord := ""
 	want := ""
+
 	for i := -255; i < 513; i++ {
-		testWord += string(uint8(i))
-		want += string(uint8(i))
+		testWord += string(rune(i))
+		want += string(rune(i))
+		boolArr := StringToBoolArray(testWord)
+		msg := BoolArrayToString(boolArr)
+		if msg != want {
+			t.Fatalf(`boolArrayToString() = %q, want match for %q, (%d)`, msg, want, uint8(i))
+		}
+	}
+	for i := -1; i < 4294967295; i += 1000 {
+		testWord = string(rune(i))
+		want = string(rune(i))
 		boolArr := StringToBoolArray(testWord)
 		msg := BoolArrayToString(boolArr)
 		if msg != want {
@@ -34,12 +44,14 @@ func TestStego(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		want := ""
-		for j := 0; j < 100; j++ {
-			want += string(rune((rand.Intn(100) % (127 - 32)) + 32))
-		}
-
-		if len(want) > len(pass) {
-			want = want[:len(pass)]
+		if i%2 == 0 {
+			for j := 0; j < 100; j++ {
+				want += string(rune((rand.Intn(100) % (255 - 32)) + 32))
+			}
+		} else {
+			for j := 0; j < 100; j++ {
+				want += string(rune((rand.Intn(65535) % (65535 - 32)) + 32))
+			}
 		}
 
 		X := 8*len(pass) + rand.Intn(255)
@@ -50,13 +62,10 @@ func TestStego(t *testing.T) {
 				img.Set(x, y, color.RGBA64{uint16(rand.Intn(255)), uint16(rand.Intn(255)), uint16(rand.Intn(255)), 255})
 			}
 		}
-		Encode(&img, want, pass, len(pass)*8, 150, -150, 0)
-		msg := Decode(&img, pass, len(pass)*8, 0)
-
+		Encode(&img, want, pass, len(pass)*32, 150, -150, 0)
+		msg := Decode(&img, pass, len(pass)*32, 0)
 		if msg != want {
 			t.Fatalf(`TestStego() = %q, want match for %q`, msg, want)
-		} else {
-			fmt.Println("Image: (", X, ",", Y, ")\t", msg)
 		}
 
 	}
