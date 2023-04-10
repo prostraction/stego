@@ -12,14 +12,15 @@ func abs[T int | byte](value T) T {
 	}
 	return value
 }
-func stringToBoolArray(value string) []bool {
+func StringToBoolArray(value string) []bool {
 	if len(value) == 0 {
 		return nil
 	}
 	array := make([]bool, 0)
-	for i := 0; i < len(value); i++ {
+	runeValue := []rune(value)
+	for i := 0; i < len(runeValue); i++ {
 		symbol := make([]bool, 0, 8)
-		ch := value[i]
+		ch := runeValue[i]
 		for ch != 0 {
 			t := ch % 2
 			if t == 0 {
@@ -38,6 +39,38 @@ func stringToBoolArray(value string) []bool {
 		symbol = nil
 	}
 	return array
+}
+
+func BoolArrayToString(value []bool) string {
+	if len(value) == 0 {
+		return ""
+	}
+	retString := ""
+	symbol := make([]bool, 0, 8)
+	count := 1
+	for i := 0; i < len(value); i++ {
+		if symbol == nil {
+			symbol = make([]bool, 0, 8)
+		}
+		symbol = append(symbol, value[i])
+		if count/8 == 1 {
+			ch := 0x00
+			ind := 7
+			c := 0
+			for ind >= 0 {
+				if symbol[ind] {
+					ch += (1 << c)
+				}
+				ind--
+				c++
+			}
+			retString += string(rune(ch))
+			symbol = nil
+			count = 0
+		}
+		count++
+	}
+	return retString
 }
 
 func Encode(img *image.RGBA, encodedWord string, pass string, encodedWordLen int, addMod int, negMod int, channelSelected int) bool {
@@ -59,7 +92,7 @@ func Encode(img *image.RGBA, encodedWord string, pass string, encodedWordLen int
 	currentSymbol := 0
 	dctMatrix := make([]float32, sizeOfBlock2D)
 
-	boolPass := stringToBoolArray(pass)
+	boolPass := StringToBoolArray(pass)
 	if len(boolPass) < encodedWordLen {
 		emptySlice := make([]bool, encodedWordLen-len(pass))
 		boolPass = append(boolPass, emptySlice...)
