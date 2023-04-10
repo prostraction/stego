@@ -17,7 +17,6 @@ func MakeDCT(dctEmptyMatrix *[]float32, img *[]uint8, xPos int, yPos int, width 
 	var rows [8][8]int
 	var x0, x1, x2, x3, x4, x5, x6, x7, x8 int
 
-	/* Transform rows */
 	for i := 0; i < 8; i++ {
 		x0 = int(pixel(img, xPos+0, yPos+i, width, channels, channelSelected))
 		x1 = int(pixel(img, xPos+1, yPos+i, width, channels, channelSelected))
@@ -28,7 +27,6 @@ func MakeDCT(dctEmptyMatrix *[]float32, img *[]uint8, xPos int, yPos int, width 
 		x6 = int(pixel(img, xPos+6, yPos+i, width, channels, channelSelected))
 		x7 = int(pixel(img, xPos+7, yPos+i, width, channels, channelSelected))
 
-		/* Stage 1 */
 		x8 = x7 + x0
 		x0 -= x7
 		x7 = x1 + x6
@@ -38,7 +36,6 @@ func MakeDCT(dctEmptyMatrix *[]float32, img *[]uint8, xPos int, yPos int, width 
 		x5 = x3 + x4
 		x3 -= x4
 
-		/* Stage 2 */
 		x4 = x8 + x5
 		x8 -= x5
 		x5 = x7 + x6
@@ -50,7 +47,6 @@ func MakeDCT(dctEmptyMatrix *[]float32, img *[]uint8, xPos int, yPos int, width 
 		x3 = (-s3-c3)*x3 + x6
 		x0 = (s3-c3)*x0 + x6
 
-		/* Stage 3 */
 		x6 = x4 + x5
 		x4 -= x5
 		x5 = r2c6 * (x7 + x8)
@@ -61,7 +57,6 @@ func MakeDCT(dctEmptyMatrix *[]float32, img *[]uint8, xPos int, yPos int, width 
 		x2 = x3 + x1
 		x3 -= x1
 
-		/* Stage 4 and output */
 		rows[i][0] = x6
 		rows[i][4] = x4
 		rows[i][2] = x8 >> 10
@@ -72,7 +67,6 @@ func MakeDCT(dctEmptyMatrix *[]float32, img *[]uint8, xPos int, yPos int, width 
 		rows[i][5] = (x0 * r2) >> 17
 	}
 
-	/* Transform columns */
 	for i := 0; i < 8; i++ {
 		x0 = rows[0][i]
 		x1 = rows[1][i]
@@ -83,7 +77,6 @@ func MakeDCT(dctEmptyMatrix *[]float32, img *[]uint8, xPos int, yPos int, width 
 		x6 = rows[6][i]
 		x7 = rows[7][i]
 
-		/* Stage 1 */
 		x8 = x7 + x0
 		x0 -= x7
 		x7 = x1 + x6
@@ -93,7 +86,6 @@ func MakeDCT(dctEmptyMatrix *[]float32, img *[]uint8, xPos int, yPos int, width 
 		x5 = x3 + x4
 		x3 -= x4
 
-		/* Stage 2 */
 		x4 = x8 + x5
 		x8 -= x5
 		x5 = x7 + x6
@@ -105,7 +97,6 @@ func MakeDCT(dctEmptyMatrix *[]float32, img *[]uint8, xPos int, yPos int, width 
 		x3 = (-s3-c3)*x3 + x6
 		x0 = (s3-c3)*x0 + x6
 
-		/* Stage 3 */
 		x6 = x4 + x5
 		x4 -= x5
 		x5 = r2c6 * (x7 + x8)
@@ -116,7 +107,6 @@ func MakeDCT(dctEmptyMatrix *[]float32, img *[]uint8, xPos int, yPos int, width 
 		x2 = x3 + x1
 		x3 -= x1
 
-		/* Stage 4 and output */
 		(*dctEmptyMatrix)[i+8*0] = (float32)((x6 + 16) >> 3)
 		(*dctEmptyMatrix)[i+8*4] = (float32)((x4 + 16) >> 3)
 		(*dctEmptyMatrix)[i+8*2] = (float32)((x8 + 16384) >> 13)
@@ -174,6 +164,7 @@ func makeIDCT_1D(F *[]int) []int {
 
 /* Only one channel of image will be procceed */
 func MakeIDCT(dctMatrix *[]float32, img *[]uint8, xPos int, yPos int, width int, channels int8, channelSelected int8) {
+
 	scale := [64]int{
 		4096, 2276, 5352, 3218, 4096, 3218, 2217, 2276,
 		2276, 1264, 2973, 1788, 2276, 1788, 1232, 1264,

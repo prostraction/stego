@@ -40,6 +40,16 @@ func openImage(path string) (image.Image, error) {
 	return img, nil
 }
 
+func clamp(value, min, max uint32) uint32 {
+	if value < min {
+		return min
+	} else if value > max {
+		return max
+	} else {
+		return value
+	}
+}
+
 func EncodeFile(pathFrom string, pathTo string, encodedWord string, pass string, encodedWordLen int, addMod int, negMod int) bool {
 	img, err := openImage(pathFrom)
 	if err != nil {
@@ -50,6 +60,17 @@ func EncodeFile(pathFrom string, pathTo string, encodedWord string, pass string,
 	//fmt.Println(pathFrom, b.Max.X, b.Max.Y)
 	imgRGBA := image.NewRGBA(image.Rect(0, 0, b.Max.X, b.Max.Y))
 	draw.Draw(imgRGBA, imgRGBA.Bounds(), img, b.Min, draw.Src)
+	for x := 0; x < b.Max.X; x++ {
+		for y := 0; y < b.Max.Y; y++ {
+			imgRGBA.Pix[x+y*b.Max.X] = uint8(clamp(uint32(imgRGBA.Pix[x+y*b.Max.X]), 1, 254))
+			//r, g, b, a := imgRGBA.At(x, y).RGBA()
+			//r = clamp(r, 0, 65535)
+			//g = clamp(g, 0, 65535)
+			//b = clamp(b, 0, 65535)
+			//a = clamp(a, 1, 254)
+			//imgRGBA.Set(x, y, color.RGBA64{uint16(r), uint16(g), uint16(b), uint16(a)})
+		}
+	}
 
 	work := make(chan int)
 	wg := sync.WaitGroup{}
@@ -57,7 +78,7 @@ func EncodeFile(pathFrom string, pathTo string, encodedWord string, pass string,
 	for i := 0; i < 3; i++ {
 		stack[i] = i
 	}
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 1; i++ {
 		wg.Add(1)
 		go func(c int) {
 			defer wg.Done()
@@ -76,7 +97,18 @@ func EncodeFile(pathFrom string, pathTo string, encodedWord string, pass string,
 		fmt.Println(err)
 		return false
 	}
-	jpeg.Encode(f_out, img, nil)
+	for x := 0; x < b.Max.X; x++ {
+		for y := 0; y < b.Max.Y; y++ {
+			imgRGBA.Pix[x+y*b.Max.X] = uint8(clamp(uint32(imgRGBA.Pix[x+y*b.Max.X]), 1, 254))
+			//r, g, b, a := imgRGBA.At(x, y).RGBA()
+			//r = clamp(r, 0, 65535)
+			//g = clamp(g, 0, 65535)
+			//b = clamp(b, 0, 65535)
+			//a = clamp(a, 1, 254)
+			//imgRGBA.Set(x, y, color.RGBA64{uint16(r), uint16(g), uint16(b), uint16(a)})
+		}
+	}
+	jpeg.Encode(f_out, imgRGBA, nil)
 	return true
 }
 
