@@ -91,12 +91,12 @@ func Encode(img *image.RGBA, encodedWord string, pass string, encodedWordLen int
 
 	currentSymbol := 0
 	dctMatrix := make([]float32, sizeOfBlock2D)
-
-	boolPass := StringToBoolArray(pass)
-	if len(boolPass) < encodedWordLen {
-		emptySlice := make([]bool, encodedWordLen-len(pass))
-		boolPass = append(boolPass, emptySlice...)
+	boolEncoded := StringToBoolArray(encodedWord)
+	if len(boolEncoded) < encodedWordLen {
+		emptySlice := make([]bool, encodedWordLen-len(encodedWord))
+		boolEncoded = append(boolEncoded, emptySlice...)
 	}
+
 	for x := 0; x < bounds.Max.X-bounds.Max.X%sizeOfBlock1D-1; x += sizeOfBlock1D {
 		for y := 0; y < bounds.Max.Y-bounds.Max.Y%sizeOfBlock1D-1; y += sizeOfBlock1D {
 			pixelIndex1 := validIndexes[pass[y%len(pass)]%countValidIndexes]
@@ -111,9 +111,9 @@ func Encode(img *image.RGBA, encodedWord string, pass string, encodedWordLen int
 				pixelIndex3++
 				pixelIndex3 = validIndexes[pixelIndex3%countValidIndexes]
 			}
-
 			dct.MakeDCT(&dctMatrix, &(*img).Pix, x, y, bounds.Max.X, 4, int8(channelSelected))
-			if boolPass[currentSymbol%encodedWordLen] {
+			//fmt.Println(len(boolEncoded), encodedWordLen)
+			if boolEncoded[currentSymbol%encodedWordLen] {
 				dctMatrix[pixelIndex1] = float32(addMod)
 				dctMatrix[pixelIndex2] = float32(addMod)
 				dctMatrix[pixelIndex3] = float32(negMod)
@@ -129,10 +129,10 @@ func Encode(img *image.RGBA, encodedWord string, pass string, encodedWordLen int
 	return true
 }
 
-func Decode(img *image.RGBA, pass string, encodedWordLen int, channelSelected int) bool {
+func Decode(img *image.RGBA, pass string, encodedWordLen int, channelSelected int) string {
 	bounds := (*img).Bounds()
 	if bounds.Max.X < 8 || bounds.Max.Y < 8 {
-		return false
+		return ""
 	}
 
 	const countValidIndexes = 25
@@ -179,6 +179,12 @@ func Decode(img *image.RGBA, pass string, encodedWordLen int, channelSelected in
 			codedWordBool[i] = true
 		}
 	}
-
-	return true
+	msg := BoolArrayToString(codedWordBool)
+	for i := 0; i < len(msg); i++ {
+		if msg[i] == 0x00 {
+			msg = msg[:i]
+			break
+		}
+	}
+	return msg
 }
