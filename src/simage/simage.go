@@ -1,5 +1,0 @@
-package simage
-
-func Image() {
-
-}

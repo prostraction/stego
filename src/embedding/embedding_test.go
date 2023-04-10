@@ -103,9 +103,9 @@ func TestStegoRobust(t *testing.T) {
 				img.Set(x, y, color.RGBA64{uint16(10000 + rand.Intn(40000)), uint16(10000 + rand.Intn(40000)), uint16(10000 + rand.Intn(40000)), 255})
 			}
 		}
-		Encode(img, want, pass, len(pass)*32, 150, -150, 0)
-		Encode(img, want, pass, len(pass)*32, 150, -150, 1)
-		Encode(img, want, pass, len(pass)*32, 150, -150, 2)
+		Encode(img, want, pass, len(pass)*32, 50, -50, 0)
+		Encode(img, want, pass, len(pass)*32, 50, -50, 1)
+		Encode(img, want, pass, len(pass)*32, 50, -50, 2)
 
 		os.Mkdir("test_images", os.ModePerm)
 		f, err := os.Create("test_images/test" + strconv.Itoa(i) + ".jpg")
