@@ -12,6 +12,8 @@ import (
 	"stego/src/embedding"
 	"strings"
 	"sync"
+
+	"github.com/edwvee/exiffix"
 )
 
 // Opens file and return image from it
@@ -23,7 +25,7 @@ func openImage(path string) (image.Image, error) {
 	}
 	defer file.Close()
 	if filepath.Ext(strings.ToLower(file.Name())) == ".jpeg" || filepath.Ext(strings.ToLower(file.Name())) == ".jpg" {
-		img, err = jpeg.Decode(file)
+		img, _, err = exiffix.Decode(file)
 		if err != nil {
 			return nil, err
 		}
