@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"image/draw"
 	"image/jpeg"
 	"math/rand"
 	"os"
@@ -103,6 +104,8 @@ func TestStegoRobust(t *testing.T) {
 			}
 		}
 		Encode(img, want, pass, len(pass)*32, 150, -150, 0)
+		Encode(img, want, pass, len(pass)*32, 150, -150, 1)
+		Encode(img, want, pass, len(pass)*32, 150, -150, 2)
 
 		os.Mkdir("test_images", os.ModePerm)
 		f, err := os.Create("test_images/test" + strconv.Itoa(i) + ".jpg")
@@ -110,10 +113,18 @@ func TestStegoRobust(t *testing.T) {
 			fmt.Println(err)
 			return
 		}
-		defer f.Close()
-		jpeg.Encode(f, img, nil)
 
-		msg := Decode(img, pass, len(pass)*32, 0)
+		jpeg.Encode(f, img, nil)
+		f.Close()
+
+		f, _ = os.Open("test_images/test" + strconv.Itoa(i) + ".jpg")
+		imgWrote, _ := jpeg.Decode(f)
+		b := imgWrote.Bounds()
+		imgTest := image.NewRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
+		draw.Draw(imgTest, imgTest.Bounds(), imgWrote, b.Min, draw.Src)
+		f.Close()
+
+		msg := Decode(imgTest, pass, len(pass)*32, 0)
 		var validateBytes float32 = 0
 		for i := 0; i < len(want); i++ {
 			if i < len(msg) {
@@ -121,12 +132,11 @@ func TestStegoRobust(t *testing.T) {
 					validateBytes++
 				}
 			}
-
 		}
 		validatePercentAvg += validateBytes / float32(len(want)) * 100.
 		//if msg != want {
 		//	fmt.Println("[MSG] Loss = ", 100.*validateBytes/float32(len(want)), "%")
 		//}
 	}
-	fmt.Println("Test: StegoRobust is finished with ", validatePercentAvg/float32(100), "% average stegomessage recovered")
+	fmt.Println("Test: StegoRobust is finished with ", validatePercentAvg/float32(100), "% average stegomessage recovered.")
 }
