@@ -103,8 +103,8 @@ func TestStegoRobust(t *testing.T) {
 		}
 		Encode(img, want, pass, len(pass)*32, 150, -150, 0)
 
-		os.Mkdir("images", os.ModePerm)
-		f, err := os.Create("images/test" + strconv.Itoa(i) + ".jpg")
+		os.Mkdir("test_images", os.ModePerm)
+		f, err := os.Create("test_images/test" + strconv.Itoa(i) + ".jpg")
 		if err != nil {
 			fmt.Println(err)
 			return
