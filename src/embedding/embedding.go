@@ -43,7 +43,7 @@ func StringToBoolArray(value string) []bool {
 }
 
 func BoolArrayToString(value []bool) string {
-	if len(value) == 0 {
+	if len(value) < 32 {
 		return ""
 	}
 	retString := ""
@@ -70,7 +70,6 @@ func BoolArrayToString(value []bool) string {
 		}
 		count++
 	}
-
 	return retString
 }
 
@@ -93,9 +92,6 @@ func Encode(img *image.RGBA, encodedWord string, pass string, encodedWordLen int
 	currentSymbol := 0
 	dctMatrix := make([]float32, sizeOfBlock2D)
 	boolEncoded := StringToBoolArray(encodedWord)
-
-	//fmt.Println(boolEncoded)
-	//fmt.Println([]byte(encodedWord))
 
 	if len(boolEncoded) < encodedWordLen {
 		emptySlice := make([]bool, encodedWordLen-len(encodedWord))
