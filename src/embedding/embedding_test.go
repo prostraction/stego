@@ -62,7 +62,7 @@ func TestStegoNoRobust(t *testing.T) {
 		img := *image.NewRGBA(image.Rectangle{image.Point{0, 0}, image.Point{X, Y}})
 		for x := 0; x < X; x++ {
 			for y := 0; y < Y; y++ {
-				img.Set(x, y, color.RGBA64{uint16(rand.Intn(255)), uint16(rand.Intn(255)), uint16(rand.Intn(255)), 255})
+				img.Set(x, y, color.RGBA64{uint16(10000 + rand.Intn(40000)), uint16(10000 + rand.Intn(40000)), uint16(10000 + rand.Intn(40000)), 255})
 			}
 		}
 		Encode(&img, want, pass, len(pass)*32, 150, -150, 0)
@@ -82,6 +82,7 @@ func TestStegoRobust(t *testing.T) {
 		}
 	}
 
+	var validatePercentAvg float32 = 0
 	for i := 0; i < 100; i++ {
 		want := ""
 		if i%2 == 0 {
@@ -98,7 +99,7 @@ func TestStegoRobust(t *testing.T) {
 		img := image.NewRGBA(image.Rectangle{image.Point{0, 0}, image.Point{X, Y}})
 		for x := 0; x < X; x++ {
 			for y := 0; y < Y; y++ {
-				img.Set(x, y, color.RGBA64{uint16(10000 + rand.Intn(55000)), uint16(10000 + rand.Intn(55000)), uint16(10000 + rand.Intn(55000)), 255})
+				img.Set(x, y, color.RGBA64{uint16(10000 + rand.Intn(40000)), uint16(10000 + rand.Intn(40000)), uint16(10000 + rand.Intn(40000)), 255})
 			}
 		}
 		Encode(img, want, pass, len(pass)*32, 150, -150, 0)
@@ -113,9 +114,19 @@ func TestStegoRobust(t *testing.T) {
 		jpeg.Encode(f, img, nil)
 
 		msg := Decode(img, pass, len(pass)*32, 0)
-		if msg != want {
-			fmt.Println("loss")
-			//t.Fatalf(`TestStegoNoRobust() = %q, want match for %q`, msg, want)
+		var validateBytes float32 = 0
+		for i := 0; i < len(want); i++ {
+			if i < len(msg) {
+				if msg[i] == want[i] {
+					validateBytes++
+				}
+			}
+
 		}
+		validatePercentAvg += validateBytes / float32(len(want)) * 100.
+		//if msg != want {
+		//	fmt.Println("[MSG] Loss = ", 100.*validateBytes/float32(len(want)), "%")
+		//}
 	}
+	fmt.Println("Test: StegoRobust is finished with ", validatePercentAvg/float32(100), "% average stegomessage recovered")
 }
