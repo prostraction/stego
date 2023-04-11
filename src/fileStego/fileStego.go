@@ -40,16 +40,6 @@ func openImage(path string) (image.Image, error) {
 	return img, nil
 }
 
-func clamp(value, min, max uint32) uint32 {
-	if value < min {
-		return min
-	} else if value > max {
-		return max
-	} else {
-		return value
-	}
-}
-
 func EncodeFile(pathFrom string, pathTo string, encodedWord string, pass string, encodedWordLen int, addMod int, negMod int) bool {
 	img, err := openImage(pathFrom)
 	if err != nil {
@@ -57,7 +47,6 @@ func EncodeFile(pathFrom string, pathTo string, encodedWord string, pass string,
 		return false
 	}
 	b := img.Bounds()
-	//fmt.Println(pathFrom, b.Max.X, b.Max.Y)
 	imgRGBA := image.NewRGBA(image.Rect(0, 0, b.Max.X, b.Max.Y))
 	draw.Draw(imgRGBA, imgRGBA.Bounds(), img, b.Min, draw.Src)
 
