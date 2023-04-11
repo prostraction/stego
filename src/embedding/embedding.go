@@ -114,9 +114,9 @@ func Encode(img *image.RGBA, encodedWord string, pass string, encodedWordLen int
 			}
 			dct.MakeDCT(&dctMatrix, &(*img).Pix, x, y, bounds.Max.X, 4, int8(channelSelected))
 			if boolEncoded[currentSymbol%encodedWordLen] {
-				//dctMatrix[pixelIndex1] = float32(addMod)
-				//dctMatrix[pixelIndex2] = float32(addMod)
-				//dctMatrix[pixelIndex3] = float32(negMod)
+				dctMatrix[pixelIndex1] = float32(addMod)
+				dctMatrix[pixelIndex2] = float32(addMod)
+				dctMatrix[pixelIndex3] = float32(negMod)
 			} else {
 				//dctMatrix[pixelIndex1] = float32(negMod)
 				//dctMatrix[pixelIndex2] = float32(negMod)
