@@ -80,7 +80,7 @@ func Decoding(t *testing.T, dirIn string, dirOut string, want string, pass strin
 				validBytes++
 			}
 		}
-		fmt.Println("[", 100*float32(validBytes)/float32(len(want)), "% recoved]", str)
+		fmt.Println("[", 100*float32(validBytes)/float32(len(want)), "% recovered]", str)
 	}
 
 	//if err != nil {

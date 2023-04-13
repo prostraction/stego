@@ -177,20 +177,20 @@ func Decode(img *image.RGBA, pass string, encodedWordLen int, channelSelected in
 		}
 	}
 
-	/*for i := 0; i < encodedWordLen; i++ {
+	for i := 0; i < encodedWordLen; i++ {
 		if codedWordCounter[i] >= ((blocksCount + 1) / 2) {
 			codedWordBool[i] = true
 		}
-	}*/
+	}
 	msg := BoolArrayToString(codedWordBool)
-	/*for i := len(msg) - 1; i >= 0; i-- {
+	for i := len(msg) - 1; i >= 0; i-- {
 		if msg[i] == 0x00 {
-			for msg[i] == 0x00 {
+			for i >= 0 && msg[i] == 0x00 {
 				i--
 			}
 			msg = msg[:i+1]
 			break
 		}
-	}*/
+	}
 	return msg
 }

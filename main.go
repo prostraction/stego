@@ -31,16 +31,16 @@ var operation = "decode"
 var dirProc = false
 
 // Input file/dir
-var path = ""
+var pathIn = ""
 
 // Output file/dir
-var pathTo = ""
+var pathOut = ""
 
 func printHelp() {
 
 }
 
-func fillArgs(args []string) {
+func fillArgs(args []string) error {
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "-m":
@@ -48,73 +48,107 @@ func fillArgs(args []string) {
 				msg = args[i+1]
 				i++
 			} else {
-				fmt.Println(args[i], "requeires an argument")
-				printHelp()
-				return
+				var e error = fmt.Errorf("%s requeires an argument", args[i])
+				return e
 			}
 		case "-p":
 			if i+1 < len(args) {
-				path = args[i+1]
+				pathIn = args[i+1]
 				i++
 			} else {
-				fmt.Println(args[i], "requeires an argument")
-				printHelp()
-				return
+				var e error = fmt.Errorf("%s requeires an argument", args[i])
+				return e
 			}
 		case "-o":
 			if i+1 < len(args) {
-				pathTo = args[i+1]
+				pathOut = args[i+1]
 				i++
 			} else {
-				fmt.Println(args[i], "requeires an argument")
-				printHelp()
-				return
+				var e error = fmt.Errorf("%s requeires an argument", args[i])
+				return e
 			}
 		case "-r":
 			if i+1 < len(args) {
 				r, err := strconv.Atoi(args[i+1])
 				if err != nil {
-					fmt.Println(err.Error())
-					fmt.Println("Using default value ", robust)
+					return err
 				} else {
 					robust = r
 				}
 				i++
 			} else {
-				fmt.Println(args[i], "requeires an argument")
-				printHelp()
-				return
+				var e error = fmt.Errorf("%s requeires an argument", args[i])
+				return e
 			}
 		case "-l":
 			if i+1 < len(args) {
 				l, err := strconv.Atoi(args[i+1])
 				if err != nil {
-					fmt.Println(err.Error())
-					fmt.Println("Using default value ", msgLen)
+					return err
 				} else {
 					msgLen = l
 				}
 				i++
 			} else {
-				fmt.Println(args[i], "requeires an argument")
-				printHelp()
-				return
+				var e error = fmt.Errorf("%s requeires an argument", args[i])
+				return e
 			}
 		case "-d":
-			dirProc = true
+			operation = "decode"
+		case "-e":
+			operation = "encode"
+		case "-b":
+			operation = "bench"
 		}
 	}
+	return nil
 }
 
 func main() {
 	args := os.Args
-	fillArgs(args)
+	err := fillArgs(args)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	if msgLen == 0 {
+		if operation == "encode" || operation == "bench" {
+			msgLen = len(msg) * 32
+			fmt.Printf("Length of message: %d. Use it for decoding.\n", msgLen)
+		} else {
+			fmt.Println("Specify length of message!")
+			return
+		}
+	}
+	fi1, err := os.Stat(pathIn)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	if pathOut == "" {
+		if fi1.IsDir() {
+			pathOut = fi1.Name() + "stego"
+			os.Mkdir(pathOut, os.ModePerm)
+			_, verifyPermErr := os.Stat(pathOut)
+			if verifyPermErr != nil {
+				fmt.Println("No output directory was specified. Unable to create a new directory", pathOut, "aborting.")
+				fmt.Println(verifyPermErr.Error())
+				return
+			}
+		} else {
+
+		}
+	}
+
 	switch operation {
 	case "decode":
-		fmt.Println(fileStego.DecodeFile(path, pass, msgLen))
+		// msg, err :=
+		fmt.Println(fileStego.DecodeFile(pathIn, pass, msgLen))
 	case "encode":
-		fileStego.EncodeFile(path, pathTo, msg, pass, msgLen, robust, -robust)
+		// err :=
+		fileStego.EncodeFile(pathIn, pathOut, msg, pass, msgLen, robust, -robust)
 	case "bench":
-
+		// res, err :=
 	}
 }
