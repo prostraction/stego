@@ -60,7 +60,7 @@ func EncodeFile(pathFrom string, pathTo string, encodedWord string, pass string,
 		wg.Add(1)
 		go func(c int) {
 			defer wg.Done()
-			embedding.Encode(imgRGBA, encodedWord, pass, len(pass)*32, addMod, negMod, c)
+			embedding.Encode(imgRGBA, encodedWord, pass, encodedWordLen, addMod, negMod, c)
 		}(i)
 	}
 	go func() {
@@ -88,6 +88,6 @@ func DecodeFile(path string, pass string, encodedWordLen int) string {
 	b := img.Bounds()
 	imgRGBA := image.NewRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
 	draw.Draw(imgRGBA, imgRGBA.Bounds(), img, b.Min, draw.Src)
-	str := embedding.Decode(imgRGBA, pass, len(pass)*32, 0)
+	str := embedding.Decode(imgRGBA, pass, encodedWordLen, 0)
 	return str
 }
