@@ -56,7 +56,7 @@ func EncodeFile(pathFrom string, pathTo string, encodedWord string, pass string,
 	for i := 0; i < 3; i++ {
 		stack[i] = i
 	}
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 3; i++ {
 		wg.Add(1)
 		go func(c int) {
 			defer wg.Done()
@@ -80,11 +80,14 @@ func EncodeFile(pathFrom string, pathTo string, encodedWord string, pass string,
 }
 
 func DecodeFile(path string, pass string, encodedWordLen int) string {
-	img, _ := openImage(path)
+	img, err := openImage(path)
+	if err != nil {
+		fmt.Println("Error!", err.Error())
+		return ""
+	}
 	b := img.Bounds()
 	imgRGBA := image.NewRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
 	draw.Draw(imgRGBA, imgRGBA.Bounds(), img, b.Min, draw.Src)
-
 	str := embedding.Decode(imgRGBA, pass, len(pass)*32, 0)
 	return str
 }

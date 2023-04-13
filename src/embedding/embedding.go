@@ -134,6 +134,9 @@ func Decode(img *image.RGBA, pass string, encodedWordLen int, channelSelected in
 	if bounds.Max.X < 8 || bounds.Max.Y < 8 {
 		return ""
 	}
+	if encodedWordLen == 0 {
+		return ""
+	}
 
 	const countValidIndexes = 25
 	const sizeOfBlock2D = 64
@@ -174,13 +177,13 @@ func Decode(img *image.RGBA, pass string, encodedWordLen int, channelSelected in
 		}
 	}
 
-	for i := 0; i < encodedWordLen; i++ {
+	/*for i := 0; i < encodedWordLen; i++ {
 		if codedWordCounter[i] >= ((blocksCount + 1) / 2) {
 			codedWordBool[i] = true
 		}
-	}
+	}*/
 	msg := BoolArrayToString(codedWordBool)
-	for i := len(msg) - 1; i >= 0; i-- {
+	/*for i := len(msg) - 1; i >= 0; i-- {
 		if msg[i] == 0x00 {
 			for msg[i] == 0x00 {
 				i--
@@ -188,6 +191,6 @@ func Decode(img *image.RGBA, pass string, encodedWordLen int, channelSelected in
 			msg = msg[:i+1]
 			break
 		}
-	}
+	}*/
 	return msg
 }
