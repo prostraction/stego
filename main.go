@@ -2,9 +2,12 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
+	"runtime"
 	"stego/src/fileStego"
 	"strconv"
+	"sync"
 )
 
 // Password is just any letters combination of any size and MUST BE the same for encoding and decoding of one image
@@ -25,10 +28,13 @@ var msgLen = 0 // bits
 var robust = 20
 
 // You can use "encode", "decode" or "bench" (encode and decode together)
-var operation = "decode"
+const (
+	encodeOperation = iota
+	decodeOperation
+	benchOperation
+)
 
-// You can set dirProc to true for encoding/decoding each image in directory
-var dirProc = false
+var operation = decodeOperation
 
 // Input file/dir
 var pathIn = ""
@@ -94,14 +100,52 @@ func fillArgs(args []string) error {
 				return e
 			}
 		case "-d":
-			operation = "decode"
+			operation = decodeOperation
 		case "-e":
-			operation = "encode"
+			operation = encodeOperation
 		case "-b":
-			operation = "bench"
+			operation = benchOperation
 		}
 	}
 	return nil
+}
+
+func concRun(procOperation int, dirIn string, dirOut string) ([]string, []error, error) {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+	fList, err := ioutil.ReadDir(dirIn)
+	if err != nil {
+		return nil, nil, err
+	}
+	work := make(chan int)
+	wait := sync.WaitGroup{}
+	stackValue := make([]string, len(fList))
+	stackNames := make([]int, len(fList))
+	stackError := make([]error, len(fList))
+	for i := 0; i < len(fList); i++ {
+		stackNames[i] = i
+	}
+	for cpu := 0; cpu < runtime.NumCPU(); cpu++ {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			for i := range work {
+				switch procOperation {
+				case encodeOperation:
+					stackError[i] = fileStego.EncodeFile(dirIn+"//"+fList[i].Name(), dirOut+"//"+fList[i].Name(), msg, pass, msgLen, robust, -robust)
+				case decodeOperation:
+					stackValue[i], stackError[i] = fileStego.DecodeFile(dirIn+"//"+fList[i].Name(), pass, msgLen)
+				}
+			}
+		}()
+	}
+	go func() {
+		for _, s := range stackNames {
+			work <- s
+		}
+		close(work)
+	}()
+	wait.Wait()
+	return stackValue, stackError, nil
 }
 
 func main() {
@@ -111,24 +155,24 @@ func main() {
 		fmt.Println(err.Error())
 		return
 	}
-
 	if msgLen == 0 {
-		if operation == "encode" || operation == "bench" {
+		switch operation {
+		case encodeOperation, benchOperation:
 			msgLen = len(msg) * 32
-			fmt.Printf("Length of message: %d. Use it for decoding.\n", msgLen)
-		} else {
-			fmt.Println("Specify length of message!")
+			fmt.Printf("Length of a message: %d. Use it for decoding.\n", msgLen)
+		default:
+			fmt.Println("Specify length of a message!")
 			return
 		}
 	}
-	fi1, err := os.Stat(pathIn)
+	fi, err := os.Stat(pathIn)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
 	if pathOut == "" {
-		if fi1.IsDir() {
-			pathOut = fi1.Name() + "stego"
+		if fi.IsDir() {
+			pathOut = fi.Name() + "_stego"
 			os.Mkdir(pathOut, os.ModePerm)
 			_, verifyPermErr := os.Stat(pathOut)
 			if verifyPermErr != nil {
@@ -137,18 +181,86 @@ func main() {
 				return
 			}
 		} else {
-
+			pathOut = func(str string) string {
+				for i := len(str) - 1; i >= 0; i-- {
+					if str[i] == '.' {
+						return pathIn[0:i]
+					}
+				}
+				return ""
+			}(pathIn)
+			if pathOut == "" {
+				fmt.Printf("No file type specified for %s. Aborting.\n", pathIn)
+				return
+			}
+		}
+	} else {
+		os.Mkdir(pathOut, os.ModePerm)
+		_, verifyPermErr := os.Stat(pathOut)
+		if verifyPermErr != nil {
+			fmt.Println("No output directory was specified. Unable to create a new directory", pathOut, "aborting.")
+			fmt.Println(verifyPermErr.Error())
+			return
 		}
 	}
 
 	switch operation {
-	case "decode":
-		// msg, err :=
-		fmt.Println(fileStego.DecodeFile(pathIn, pass, msgLen))
-	case "encode":
-		// err :=
-		fileStego.EncodeFile(pathIn, pathOut, msg, pass, msgLen, robust, -robust)
-	case "bench":
-		// res, err :=
+	case benchOperation:
+		fallthrough
+	case encodeOperation:
+		if !fi.IsDir() {
+			if err := fileStego.EncodeFile(pathIn, pathOut, msg, pass, msgLen, robust, -robust); err != nil {
+				fmt.Printf("Error: %s for %s\n", err.Error(), pathIn)
+			} else {
+				fmt.Println("Message encoded.")
+			}
+		} else {
+			if msgs, errs, err := concRun(encodeOperation, pathIn, pathOut); err != nil {
+				fmt.Println(err)
+			} else {
+				errCount := 0
+				for i := 0; i < len(msgs); i++ {
+					if i < len(errs) && errs[i] != nil {
+						fmt.Printf("Error: %s\n", errs[i].Error())
+						errCount++
+					}
+				}
+				if errCount == 0 {
+					fmt.Println("All messages encoded.")
+				}
+			}
+		}
+		if operation != benchOperation {
+			break
+		}
+		fallthrough
+	case decodeOperation:
+		if operation == benchOperation {
+			pathIn = pathOut
+		}
+		if !fi.IsDir() {
+			if msgDecoded, err := fileStego.DecodeFile(pathIn, pass, msgLen); err != nil {
+				fmt.Printf("Error: %s for %s\n", err.Error(), pathIn)
+			} else {
+				fmt.Printf("%s\n", msgDecoded)
+			}
+		} else {
+			if msgsDecoded, errs, err := concRun(decodeOperation, pathIn, pathOut); err != nil {
+				fmt.Println(err)
+			} else {
+				fList, err := ioutil.ReadDir(pathIn)
+				if err != nil {
+					fmt.Println(err.Error())
+					return
+				}
+				for i := 0; i < len(msgsDecoded); i++ {
+					if i < len(errs) && errs[i] != nil {
+						fmt.Printf("Error: %s for %s\n", errs[i].Error(), pathIn)
+					} else {
+						fmt.Printf("[%s]\t\"%s\"\n", fList[i].Name(), msgsDecoded[i])
+					}
+				}
+			}
+		}
 	}
 }

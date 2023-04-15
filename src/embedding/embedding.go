@@ -1,6 +1,7 @@
 package embedding
 
 import (
+	"errors"
 	"image"
 	_ "image"
 	"stego/src/dct"
@@ -73,16 +74,19 @@ func BoolArrayToString(value []bool) string {
 	return retString
 }
 
-func Encode(img *image.RGBA, encodedWord string, pass string, encodedWordLen int, addMod int, negMod int, channelSelected int) bool {
+func Encode(img *image.RGBA, encodedWord string, pass string, encodedWordLen int, addMod int, negMod int, channelSelected int) error {
 	bounds := (*img).Bounds()
 	if bounds.Max.X < 8 || bounds.Max.Y < 8 {
-		return false
+		return errors.New("image resolution lower than 8x8")
 	}
 	if len(encodedWord) == 0 {
-		return false
+		return errors.New("no stegomessage send to encode")
+	}
+	if encodedWordLen == 0 {
+		return errors.New("no stegomessage send to encode")
 	}
 	if len(pass) == 0 {
-		return false
+		return errors.New("no password send to encode")
 	}
 	const countValidIndexes = 25
 	const sizeOfBlock2D = 64
@@ -126,16 +130,19 @@ func Encode(img *image.RGBA, encodedWord string, pass string, encodedWordLen int
 			currentSymbol++
 		}
 	}
-	return true
+	return nil
 }
 
-func Decode(img *image.RGBA, pass string, encodedWordLen int, channelSelected int) string {
+func Decode(img *image.RGBA, pass string, encodedWordLen int, channelSelected int) (string, error) {
 	bounds := (*img).Bounds()
 	if bounds.Max.X < 8 || bounds.Max.Y < 8 {
-		return ""
+		return "", errors.New("image resolution lower than 8x8")
 	}
 	if encodedWordLen == 0 {
-		return ""
+		return "", errors.New("no msg length send to decode")
+	}
+	if len(pass) == 0 {
+		return "", errors.New("no password send to decode")
 	}
 
 	const countValidIndexes = 25
@@ -192,5 +199,5 @@ func Decode(img *image.RGBA, pass string, encodedWordLen int, channelSelected in
 			break
 		}
 	}
-	return msg
+	return msg, nil
 }

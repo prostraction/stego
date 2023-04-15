@@ -67,7 +67,7 @@ func TestStegoNoRobust(t *testing.T) {
 			}
 		}
 		Encode(&img, want, pass, len(pass)*32, 150, -150, 0)
-		msg := Decode(&img, pass, len(pass)*32, 0)
+		msg, _ := Decode(&img, pass, len(pass)*32, 0)
 		if msg != want {
 			t.Fatalf(`[ERR] Test: StegoNoRobust() = %q, want match for %q`, msg, want)
 		}
@@ -124,7 +124,7 @@ func TestStegoRobust(t *testing.T) {
 		draw.Draw(imgTest, imgTest.Bounds(), imgWrote, b.Min, draw.Src)
 		f.Close()
 
-		msg := Decode(imgTest, pass, len(pass)*32, 0)
+		msg, _ := Decode(imgTest, pass, len(pass)*32, 0)
 		var validateBytes float32 = 0
 		for i := 0; i < len(want); i++ {
 			if i < len(msg) {

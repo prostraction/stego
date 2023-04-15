@@ -2,7 +2,6 @@ package fileStego
 
 import (
 	"errors"
-	"fmt"
 	"image"
 	"image/draw"
 	"image/jpeg"
@@ -40,11 +39,10 @@ func openImage(path string) (image.Image, error) {
 	return img, nil
 }
 
-func EncodeFile(pathFrom string, pathTo string, encodedWord string, pass string, encodedWordLen int, addMod int, negMod int) bool {
-	img, err := openImage(pathFrom)
+func EncodeFile(pathIn string, pathOut string, encodedWord string, pass string, encodedWordLen int, addMod int, negMod int) error {
+	img, err := openImage(pathIn)
 	if err != nil {
-		fmt.Println(err.Error())
-		return false
+		return err
 	}
 	b := img.Bounds()
 	imgRGBA := image.NewRGBA(image.Rect(0, 0, b.Max.X, b.Max.Y))
@@ -60,7 +58,7 @@ func EncodeFile(pathFrom string, pathTo string, encodedWord string, pass string,
 		wg.Add(1)
 		go func(c int) {
 			defer wg.Done()
-			embedding.Encode(imgRGBA, encodedWord, pass, encodedWordLen, addMod, negMod, c)
+			err = embedding.Encode(imgRGBA, encodedWord, pass, encodedWordLen, addMod, negMod, c)
 		}(i)
 	}
 	go func() {
@@ -70,24 +68,25 @@ func EncodeFile(pathFrom string, pathTo string, encodedWord string, pass string,
 		close(work)
 	}()
 	wg.Wait()
-	f_out, err := os.Create(pathTo)
 	if err != nil {
-		fmt.Println(err)
-		return false
+		return err
+	}
+	f_out, err := os.Create(pathOut)
+	if err != nil {
+		return err
 	}
 	jpeg.Encode(f_out, imgRGBA, nil)
-	return true
+	return nil
 }
 
-func DecodeFile(path string, pass string, encodedWordLen int) string {
+func DecodeFile(path string, pass string, encodedWordLen int) (string, error) {
 	img, err := openImage(path)
 	if err != nil {
-		fmt.Println("Error!", err.Error())
-		return ""
+		return "", err
 	}
 	b := img.Bounds()
 	imgRGBA := image.NewRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
 	draw.Draw(imgRGBA, imgRGBA.Bounds(), img, b.Min, draw.Src)
-	str := embedding.Decode(imgRGBA, pass, encodedWordLen, 0)
-	return str
+	str, err := embedding.Decode(imgRGBA, pass, encodedWordLen, 0)
+	return str, err
 }
