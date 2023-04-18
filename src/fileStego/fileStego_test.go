@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"os"
 	"runtime"
 	"sync"
 	"testing"
@@ -15,6 +16,12 @@ func Encoding(t *testing.T, dirIn string, dirOut string, want string, pass strin
 	if err != nil {
 		t.Fatalf(`[ERR] %s`, err.Error())
 	}
+	os.Mkdir(dirOut, os.ModePerm)
+	_, err = os.Stat(dirOut)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
 	work := make(chan int)
 	wait := sync.WaitGroup{}
 	stack := make([]int, len(f_list))
@@ -63,7 +70,6 @@ func Decoding(t *testing.T, dirIn string, dirOut string, want string, pass strin
 		go func() {
 			defer wait.Done()
 			for s := range work {
-				fmt.Println(dirOut + "//" + f_list[s].Name())
 				stackMsgs[s], err = DecodeFile(dirOut+"//"+f_list[s].Name(), pass, len(want)*32)
 				if err != nil {
 					fmt.Printf(`[ERR] %s\n`, err.Error())
