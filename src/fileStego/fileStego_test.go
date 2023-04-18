@@ -26,7 +26,10 @@ func Encoding(t *testing.T, dirIn string, dirOut string, want string, pass strin
 		go func() {
 			defer wait.Done()
 			for i := range work {
-				EncodeFile(dirIn+"//"+f_list[i].Name(), dirOut+"//"+f_list[i].Name(), want, pass, len(want)*32, 50, -50)
+				errEnc := EncodeFile(dirIn+"//"+f_list[i].Name(), dirOut+"//"+f_list[i].Name(), want, pass, len(want)*32, 50, -50)
+				if errEnc != nil {
+					err = errEnc
+				}
 			}
 		}()
 	}
@@ -36,6 +39,9 @@ func Encoding(t *testing.T, dirIn string, dirOut string, want string, pass strin
 		}
 		close(work)
 	}()
+	if err != nil {
+		t.Fatal("[ERR] FileStegoTest: Encoding: " + err.Error())
+	}
 	wait.Wait()
 }
 
