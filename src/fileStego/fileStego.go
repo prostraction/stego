@@ -16,27 +16,41 @@ import (
 )
 
 // Opens file and return image from it
-func openImage(path string) (image.Image, error) {
-	var img image.Image
+func openImage(path string) (img image.Image, err error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
-	if filepath.Ext(strings.ToLower(file.Name())) == ".jpeg" || filepath.Ext(strings.ToLower(file.Name())) == ".jpg" {
+	switch filepath.Ext(strings.ToLower(path)) {
+	case ".jpeg":
+		fallthrough
+	case ".jpg":
 		img, _, err = exiffix.Decode(file)
-		if err != nil {
-			return nil, err
-		}
-	} else if filepath.Ext(strings.ToLower(file.Name())) == ".png" {
+	case ".png":
 		img, err = png.Decode(file)
-		if err != nil {
-			return nil, err
-		}
-	} else {
+	default:
 		return nil, errors.New("wrong type of file")
 	}
-	return img, nil
+	return
+}
+
+func writeImage(path string, img *image.RGBA) error {
+	f_out, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f_out.Close()
+	switch filepath.Ext(strings.ToLower(path)) {
+	case ".jpeg":
+		fallthrough
+	case ".jpg":
+		return jpeg.Encode(f_out, img, nil)
+	case ".png":
+		return png.Encode(f_out, img)
+	default:
+		return errors.New("unknown type of file" + path)
+	}
 }
 
 func EncodeFile(pathIn string, pathOut string, encodedWord string, pass string, encodedWordLen int, addMod int, negMod int) error {
@@ -71,11 +85,7 @@ func EncodeFile(pathIn string, pathOut string, encodedWord string, pass string, 
 	if err != nil {
 		return err
 	}
-	f_out, err := os.Create(pathOut)
-	if err != nil {
-		return err
-	}
-	jpeg.Encode(f_out, imgRGBA, nil)
+	writeImage(pathOut, imgRGBA)
 	return nil
 }
 

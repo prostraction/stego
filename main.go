@@ -46,7 +46,7 @@ func printHelp() {
 
 }
 
-func fillArgs(args []string) error {
+func fillArgs(args []string) (err error) {
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "-m":
@@ -54,24 +54,21 @@ func fillArgs(args []string) error {
 				msg = args[i+1]
 				i++
 			} else {
-				var e error = fmt.Errorf("%s requeires an argument", args[i])
-				return e
+				return fmt.Errorf("%s requeires an argument", args[i])
 			}
 		case "-p":
 			if i+1 < len(args) {
 				pathIn = args[i+1]
 				i++
 			} else {
-				var e error = fmt.Errorf("%s requeires an argument", args[i])
-				return e
+				return fmt.Errorf("%s requeires an argument", args[i])
 			}
 		case "-o":
 			if i+1 < len(args) {
 				pathOut = args[i+1]
 				i++
 			} else {
-				var e error = fmt.Errorf("%s requeires an argument", args[i])
-				return e
+				return fmt.Errorf("%s requeires an argument", args[i])
 			}
 		case "-r":
 			if i+1 < len(args) {
@@ -83,8 +80,7 @@ func fillArgs(args []string) error {
 				}
 				i++
 			} else {
-				var e error = fmt.Errorf("%s requeires an argument", args[i])
-				return e
+				return fmt.Errorf("%s requeires an argument", args[i])
 			}
 		case "-l":
 			if i+1 < len(args) {
@@ -92,12 +88,14 @@ func fillArgs(args []string) error {
 				if err != nil {
 					return err
 				} else {
+					if l < 1 {
+						return fmt.Errorf("%s can`t be <= 0", args[i])
+					}
 					msgLen = l
 				}
 				i++
 			} else {
-				var e error = fmt.Errorf("%s requeires an argument", args[i])
-				return e
+				return fmt.Errorf("%s requeires an argument", args[i])
 			}
 		case "-d":
 			operation = decodeOperation
@@ -105,6 +103,10 @@ func fillArgs(args []string) error {
 			operation = encodeOperation
 		case "-b":
 			operation = benchOperation
+		default:
+			if i > 0 {
+				return fmt.Errorf("%s unknown argument", args[i])
+			}
 		}
 	}
 	return nil
@@ -181,24 +183,29 @@ func main() {
 				return
 			}
 		} else {
-			pathOut = func(str string) string {
+			name, ext := func(str string) (string, string) {
 				for i := len(str) - 1; i >= 0; i-- {
 					if str[i] == '.' {
-						return pathIn[0:i]
+						return pathIn[0:i], pathIn[i:]
 					}
 				}
-				return ""
+				return "", ""
 			}(pathIn)
-			if pathOut == "" {
+			if name == "" {
 				fmt.Printf("No file type specified for %s. Aborting.\n", pathIn)
 				return
 			}
+			pathOut = name + "_stego" + ext
 		}
 	} else {
-		os.Mkdir(pathOut, os.ModePerm)
+		if fi.IsDir() {
+			os.Mkdir(pathOut, os.ModePerm)
+		} else {
+			os.Create(pathOut)
+		}
 		_, verifyPermErr := os.Stat(pathOut)
 		if verifyPermErr != nil {
-			fmt.Println("No output directory was specified. Unable to create a new directory", pathOut, "aborting.")
+			fmt.Println("No output path was specified. Unable to create a new file/directory", pathOut, "aborting.")
 			fmt.Println(verifyPermErr.Error())
 			return
 		}
