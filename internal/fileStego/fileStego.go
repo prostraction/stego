@@ -8,7 +8,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
-	"stego/src/embedding"
+	"stego/pkg/embedding"
 	"strings"
 	"sync"
 

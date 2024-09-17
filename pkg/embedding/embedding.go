@@ -4,7 +4,7 @@ import (
 	"errors"
 	"image"
 	_ "image"
-	"stego/src/dct"
+	"stego/pkg/dct"
 )
 
 func abs[T int | byte](value T) T {

@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"runtime"
-	"stego/src/fileStego"
+	"stego/internal/fileStego"
 	"strconv"
 	"sync"
 )
