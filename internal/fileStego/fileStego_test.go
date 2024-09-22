@@ -19,7 +19,7 @@ func Encoding(t *testing.T, dirIn string, dirOut string, want string, pass strin
 	os.Mkdir(dirOut, os.ModePerm)
 	_, err = os.Stat(dirOut)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 
 	work := make(chan int)

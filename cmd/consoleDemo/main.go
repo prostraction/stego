@@ -6,35 +6,46 @@ import (
 	"os"
 	"runtime"
 	"stego/internal/fileStego"
-	"strconv"
 	"sync"
+
+	flags "github.com/jessevdk/go-flags"
 )
 
+var opts struct {
+	Pass    string `short:"p" long:"pass" default:"abcdefghijklmnopqrstuvwxyz" required:"true" description:"Password is just any letters combination of any size and used for encoding/decoding for this file. It MUST BE the same for encoding and decoding of one image."`
+	Msg     string `short:"m" long:"message" required:"true" description:"Message which should be encoded (or decoding verification, not nessesary)."`
+	MsgLen  int    `short:"l" long:"len" required:"true" description:"Length of message. MUST BE known to decoder and it's equal to 1 Msg's symbol = 32 bits."`
+	Robust  int    `short:"r" long:"robust" default:"20" required:"true" description:"The main parameter of encoding. More Robust cause more visible hidden message, but it is more stable for compression. Value 20 is fine for most cases. 50 is visible, but image is not corrupted."`
+	Action  string `short:"a" long:"action" required:"true" description:"Available values: d (decode), e (encode), b (benchmark)"`
+	PathIn  string `short:"i" long:"input" required:"true" description:"Path to input files/dir"`
+	PathOut string `short:"o" long:"output" required:"false" description:"Path to output files dir"`
+}
+
 // Password is just any letters combination of any size and MUST BE the same for encoding and decoding of one image
-var pass = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+//var pass = flag.String("pass", "abcdefghijklmnopqrstuvwxyz", "Password  is just any letters combination of any size and used for encoding/decoding for this file. It MUST BE the same for encoding and decoding of one image.")
 
 // Message which should be encoded
-var msg = "Test message."
+//var Msg = flag.String("Msg", "Test message.", "Message which should be encoded (or decoding verification, not nessesary)")
 
-// Length of message. MUST BE known to decoder and it's equal to 1 msg's symbol = 32 bits.
-// Multiply len(msg) by 32 or use large number to cover all message bits.
-// Default value: 32*len(msg) will be printed, if -l argument will not be used.
-// If msgLen for decoding < msgLen for encoding, then message will be cut.
+// Length of message. MUST BE known to decoder and it's equal to 1 Msg's symbol = 32 bits.
+// Multiply len(Msg) by 32 or use large number to cover all message bits.
+// Default value: 32*len(Msg) will be printed, if -l argument will not be used.
+// If MsgLen for decoding < MsgLen for encoding, then message will be cut.
 // 8x8 pixel block contains 1 bit of message. At least 32 * 8x8 (image with size 128x128) pixel blocks required to encode one symbol.
-var msgLen = 0 // bits
+//var MsgLen = flag.Int("len", 0, "Length of message. MUST BE known to decoder and it's equal to 1 Msg's symbol = 32 bits.") // bits
 
-// The main parameter of encoding. More robust cause more visible hidden message, but it is more stable for compression
+// The main parameter of encoding. More Robust cause more visible hidden message, but it is more stable for compression
 // Value 20 is fine for most cases. 50 is visible, but image is not corrupted
-var robust = 20
+//var Robust = flag.Int("Robust", 20, "The main parameter of encoding. More Robust cause more visible hidden message, but it is more stable for compression. Value 20 is fine for most cases. 50 is visible, but image is not corrupted.")
 
 // You can use "encode", "decode" or "bench" (encode and decode together)
 const (
-	encodeOperation = iota
-	decodeOperation
-	benchOperation
+	encodeAction = iota
+	decodeAction
+	benchAction
 )
 
-var operation = decodeOperation
+var Action = decodeAction
 
 // Input file/dir
 var pathIn = ""
@@ -43,76 +54,80 @@ var pathIn = ""
 var pathOut = ""
 
 func printHelp() {
-
+	var options flags.Options = 1
+	p := flags.NewParser(&opts, options)
+	p.WriteHelp(os.Stdout)
 }
 
 func fillArgs(args []string) (err error) {
 	for i := 0; i < len(args); i++ {
-		switch args[i] {
-		case "-m":
-			if i+1 < len(args) {
-				msg = args[i+1]
-				i++
-			} else {
-				return fmt.Errorf("%s requeires an argument", args[i])
-			}
-		case "-p":
-			if i+1 < len(args) {
-				pathIn = args[i+1]
-				i++
-			} else {
-				return fmt.Errorf("%s requeires an argument", args[i])
-			}
-		case "-o":
-			if i+1 < len(args) {
-				pathOut = args[i+1]
-				i++
-			} else {
-				return fmt.Errorf("%s requeires an argument", args[i])
-			}
-		case "-r":
-			if i+1 < len(args) {
-				r, err := strconv.Atoi(args[i+1])
-				if err != nil {
-					return err
+		//switch args[i] {
+		/*
+			case "-m":
+				if i+1 < len(args) {
+					Msg = args[i+1]
+					i++
 				} else {
-					robust = r
+					return fmt.Errorf("%s requeires an argument", args[i])
 				}
-				i++
-			} else {
-				return fmt.Errorf("%s requeires an argument", args[i])
-			}
-		case "-l":
-			if i+1 < len(args) {
-				l, err := strconv.Atoi(args[i+1])
-				if err != nil {
-					return err
+			case "-p":
+				if i+1 < len(args) {
+					pathIn = args[i+1]
+					i++
 				} else {
-					if l < 1 {
-						return fmt.Errorf("%s can`t be <= 0", args[i])
+					return fmt.Errorf("%s requeires an argument", args[i])
+				}
+			case "-o":
+				if i+1 < len(args) {
+					pathOut = args[i+1]
+					i++
+				} else {
+					return fmt.Errorf("%s requeires an argument", args[i])
+				}
+			case "-r":
+				if i+1 < len(args) {
+					r, err := strconv.Atoi(args[i+1])
+					if err != nil {
+						return err
+					} else {
+						Robust = r
 					}
-					msgLen = l
+					i++
+				} else {
+					return fmt.Errorf("%s requeires an argument", args[i])
 				}
-				i++
-			} else {
-				return fmt.Errorf("%s requeires an argument", args[i])
-			}
-		case "-d":
-			operation = decodeOperation
-		case "-e":
-			operation = encodeOperation
-		case "-b":
-			operation = benchOperation
-		default:
-			if i > 0 {
-				return fmt.Errorf("%s unknown argument", args[i])
-			}
-		}
+			case "-l":
+				if i+1 < len(args) {
+					l, err := strconv.Atoi(args[i+1])
+					if err != nil {
+						return err
+					} else {
+						if l < 1 {
+							return fmt.Errorf("%s can`t be <= 0", args[i])
+						}
+						MsgLen = l
+					}
+					i++
+				} else {
+					return fmt.Errorf("%s requeires an argument", args[i])
+				}
+			case "-d":
+				Action = decodeAction
+			case "-e":
+				Action = encodeAction
+			case "-b":
+				Action = benchAction
+			default:
+				if i > 0 {
+					return fmt.Errorf("%s unknown argument", args[i])
+				}
+		*/
+		//}
 	}
 	return nil
 }
 
-func concRun(procOperation int, dirIn string, dirOut string) ([]string, []error, error) {
+func concRun(procAction int, dirIn string, dirOut string) ([]string, []error, error) {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	fList, err := ioutil.ReadDir(dirIn)
 	if err != nil {
@@ -131,11 +146,11 @@ func concRun(procOperation int, dirIn string, dirOut string) ([]string, []error,
 		go func() {
 			defer wait.Done()
 			for i := range work {
-				switch procOperation {
-				case encodeOperation:
-					stackError[i] = fileStego.EncodeFile(dirIn+"//"+fList[i].Name(), dirOut+"//"+fList[i].Name(), msg, pass, msgLen, robust, -robust)
-				case decodeOperation:
-					stackValue[i], stackError[i] = fileStego.DecodeFile(dirIn+"//"+fList[i].Name(), pass, msgLen)
+				switch procAction {
+				case encodeAction:
+					stackError[i] = fileStego.EncodeFile(dirIn+"//"+fList[i].Name(), dirOut+"//"+fList[i].Name(), opts.Msg, opts.Pass, opts.MsgLen, opts.Robust, -opts.Robust)
+				case decodeAction:
+					stackValue[i], stackError[i] = fileStego.DecodeFile(dirIn+"//"+fList[i].Name(), opts.Pass, opts.MsgLen)
 				}
 			}
 		}()
@@ -151,17 +166,25 @@ func concRun(procOperation int, dirIn string, dirOut string) ([]string, []error,
 }
 
 func main() {
-	args := os.Args
-	err := fillArgs(args)
-	if err != nil {
-		fmt.Println(err.Error())
+	//printHelp()
+	//args := os.Args
+	//err := fillArgs(args)
+	//if err != nil {
+	//	fmt.Println(err.Error())
+	//	return
+	//}
+	if _, err := flags.Parse(&opts); err != nil {
+		fmt.Println("")
+		printHelp()
 		return
 	}
-	if msgLen == 0 {
-		switch operation {
-		case encodeOperation, benchOperation:
-			msgLen = len(msg) * 32
-			fmt.Printf("Length of a message: %d. Use it for decoding.\n", msgLen)
+	//fmt.Println(err)
+	if opts.MsgLen == 0 {
+		switch Action {
+		case encodeAction, benchAction:
+			// ??????????????????
+			opts.MsgLen = len(opts.Msg) * 32
+			fmt.Printf("Length of a message: %d. Use it for decoding.\n", opts.MsgLen)
 		default:
 			fmt.Println("Specify length of a message!")
 			return
@@ -184,6 +207,7 @@ func main() {
 			}
 		} else {
 			name, ext := func(str string) (string, string) {
+				// ??????????????????????????????????
 				for i := len(str) - 1; i >= 0; i-- {
 					if str[i] == '.' {
 						return pathIn[0:i], pathIn[i:]
@@ -211,22 +235,22 @@ func main() {
 		}
 	}
 
-	switch operation {
-	case benchOperation:
+	switch Action {
+	case benchAction:
 		fallthrough
-	case encodeOperation:
+	case encodeAction:
 		if !fi.IsDir() {
-			if err := fileStego.EncodeFile(pathIn, pathOut, msg, pass, msgLen, robust, -robust); err != nil {
+			if err := fileStego.EncodeFile(pathIn, pathOut, opts.Msg, opts.Pass, opts.MsgLen, opts.Robust, -opts.Robust); err != nil {
 				fmt.Printf("Error: %s for %s\n", err.Error(), pathIn)
 			} else {
 				fmt.Println("Message encoded.")
 			}
 		} else {
-			if msgs, errs, err := concRun(encodeOperation, pathIn, pathOut); err != nil {
+			if Msgs, errs, err := concRun(encodeAction, pathIn, pathOut); err != nil {
 				fmt.Println(err)
 			} else {
 				errCount := 0
-				for i := 0; i < len(msgs); i++ {
+				for i := 0; i < len(Msgs); i++ {
 					if i < len(errs) && errs[i] != nil {
 						fmt.Printf("Error: %s\n", errs[i].Error())
 						errCount++
@@ -237,22 +261,22 @@ func main() {
 				}
 			}
 		}
-		if operation != benchOperation {
+		if Action != benchAction {
 			break
 		}
 		fallthrough
-	case decodeOperation:
-		if operation == benchOperation {
+	case decodeAction:
+		if Action == benchAction {
 			pathIn = pathOut
 		}
 		if !fi.IsDir() {
-			if msgDecoded, err := fileStego.DecodeFile(pathIn, pass, msgLen); err != nil {
+			if MsgDecoded, err := fileStego.DecodeFile(pathIn, opts.Pass, opts.MsgLen); err != nil {
 				fmt.Printf("Error: %s for %s\n", err.Error(), pathIn)
 			} else {
-				fmt.Printf("%s\n", msgDecoded)
+				fmt.Printf("%s\n", MsgDecoded)
 			}
 		} else {
-			if msgsDecoded, errs, err := concRun(decodeOperation, pathIn, pathOut); err != nil {
+			if MsgsDecoded, errs, err := concRun(decodeAction, pathIn, pathOut); err != nil {
 				fmt.Println(err)
 			} else {
 				fList, err := ioutil.ReadDir(pathIn)
@@ -260,11 +284,11 @@ func main() {
 					fmt.Println(err.Error())
 					return
 				}
-				for i := 0; i < len(msgsDecoded); i++ {
+				for i := 0; i < len(MsgsDecoded); i++ {
 					if i < len(errs) && errs[i] != nil {
 						fmt.Printf("Error: %s for %s\n", errs[i].Error(), pathIn)
 					} else {
-						fmt.Printf("[%s]\t\"%s\"\n", fList[i].Name(), msgsDecoded[i])
+						fmt.Printf("[%s]\t\"%s\"\n", fList[i].Name(), MsgsDecoded[i])
 					}
 				}
 			}
