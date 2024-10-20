@@ -16,27 +16,10 @@ var opts struct {
 	Msg     string `short:"m" long:"message" required:"true" description:"Message which should be encoded (or decoding verification, not nessesary)."`
 	MsgLen  int    `short:"l" long:"len" required:"true" description:"Length of message. MUST BE known to decoder and it's equal to 1 Msg's symbol = 32 bits."`
 	Robust  int    `short:"r" long:"robust" default:"20" required:"true" description:"The main parameter of encoding. More Robust cause more visible hidden message, but it is more stable for compression. Value 20 is fine for most cases. 50 is visible, but image is not corrupted."`
-	Action  string `short:"a" long:"action" required:"true" description:"Available values: d (decode), e (encode), b (benchmark)"`
+	Action  string `short:"a" long:"action" required:"true" description:"Available values: d, e, b (decode / encode / benchmark)"`
 	PathIn  string `short:"i" long:"input" required:"true" description:"Path to input files/dir"`
 	PathOut string `short:"o" long:"output" required:"false" description:"Path to output files dir"`
 }
-
-// Password is just any letters combination of any size and MUST BE the same for encoding and decoding of one image
-//var pass = flag.String("pass", "abcdefghijklmnopqrstuvwxyz", "Password  is just any letters combination of any size and used for encoding/decoding for this file. It MUST BE the same for encoding and decoding of one image.")
-
-// Message which should be encoded
-//var Msg = flag.String("Msg", "Test message.", "Message which should be encoded (or decoding verification, not nessesary)")
-
-// Length of message. MUST BE known to decoder and it's equal to 1 Msg's symbol = 32 bits.
-// Multiply len(Msg) by 32 or use large number to cover all message bits.
-// Default value: 32*len(Msg) will be printed, if -l argument will not be used.
-// If MsgLen for decoding < MsgLen for encoding, then message will be cut.
-// 8x8 pixel block contains 1 bit of message. At least 32 * 8x8 (image with size 128x128) pixel blocks required to encode one symbol.
-//var MsgLen = flag.Int("len", 0, "Length of message. MUST BE known to decoder and it's equal to 1 Msg's symbol = 32 bits.") // bits
-
-// The main parameter of encoding. More Robust cause more visible hidden message, but it is more stable for compression
-// Value 20 is fine for most cases. 50 is visible, but image is not corrupted
-//var Robust = flag.Int("Robust", 20, "The main parameter of encoding. More Robust cause more visible hidden message, but it is more stable for compression. Value 20 is fine for most cases. 50 is visible, but image is not corrupted.")
 
 // You can use "encode", "decode" or "bench" (encode and decode together)
 const (
@@ -165,49 +148,79 @@ func concRun(procAction int, dirIn string, dirOut string) ([]string, []error, er
 	return stackValue, stackError, nil
 }
 
-func main() {
-	//printHelp()
-	//args := os.Args
-	//err := fillArgs(args)
-	//if err != nil {
-	//	fmt.Println(err.Error())
-	//	return
-	//}
-	if _, err := flags.Parse(&opts); err != nil {
-		fmt.Println("")
-		printHelp()
-		return
-	}
-	//fmt.Println(err)
-	if opts.MsgLen == 0 {
-		switch Action {
-		case encodeAction, benchAction:
-			// ??????????????????
-			opts.MsgLen = len(opts.Msg) * 32
-			fmt.Printf("Length of a message: %d. Use it for decoding.\n", opts.MsgLen)
-		default:
-			fmt.Println("Specify length of a message!")
-			return
+func runEncode(fileInfo os.FileInfo) {
+	if !fileInfo.IsDir() {
+		if err := fileStego.EncodeFile(pathIn, pathOut, opts.Msg, opts.Pass, opts.MsgLen, opts.Robust, -opts.Robust); err != nil {
+			fmt.Printf("Error: %s for %s\n", err.Error(), pathIn)
+		} else {
+			fmt.Println("Message encoded.")
+		}
+	} else {
+		if Msgs, errs, err := concRun(encodeAction, pathIn, pathOut); err != nil {
+			fmt.Println(err)
+		} else {
+			errCount := 0
+			for i := 0; i < len(Msgs); i++ {
+				if i < len(errs) && errs[i] != nil {
+					fmt.Printf("Error: %s\n", errs[i].Error())
+					errCount++
+				}
+			}
+			if errCount == 0 {
+				fmt.Println("All messages encoded.")
+			}
 		}
 	}
-	fi, err := os.Stat(pathIn)
+}
+
+func runDecode(fileInfo os.FileInfo) {
+	if Action == benchAction {
+		pathIn = pathOut
+	}
+	if !fileInfo.IsDir() {
+		if MsgDecoded, err := fileStego.DecodeFile(pathIn, opts.Pass, opts.MsgLen); err != nil {
+			fmt.Printf("Error: %s for %s\n", err.Error(), pathIn)
+		} else {
+			fmt.Printf("%s\n", MsgDecoded)
+		}
+	} else {
+		if MsgsDecoded, errs, err := concRun(decodeAction, pathIn, pathOut); err != nil {
+			fmt.Println(err)
+		} else {
+			fList, err := ioutil.ReadDir(pathIn)
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
+			for i := 0; i < len(MsgsDecoded); i++ {
+				if i < len(errs) && errs[i] != nil {
+					fmt.Printf("Error: %s for %s\n", errs[i].Error(), pathIn)
+				} else {
+					fmt.Printf("[%s]\t\"%s\"\n", fList[i].Name(), MsgsDecoded[i])
+				}
+			}
+		}
+	}
+}
+
+func createDir() (os.FileInfo, error) {
+	fileInfo, err := os.Stat(pathIn)
 	if err != nil {
 		fmt.Println(err.Error())
-		return
+		return nil, err
 	}
 	if pathOut == "" {
-		if fi.IsDir() {
-			pathOut = fi.Name() + "_stego"
+		if fileInfo.IsDir() {
+			pathOut = fileInfo.Name() + "_stego"
 			os.Mkdir(pathOut, os.ModePerm)
 			_, verifyPermErr := os.Stat(pathOut)
 			if verifyPermErr != nil {
 				fmt.Println("No output directory was specified. Unable to create a new directory", pathOut, "aborting.")
 				fmt.Println(verifyPermErr.Error())
-				return
+				return nil, err
 			}
 		} else {
 			name, ext := func(str string) (string, string) {
-				// ??????????????????????????????????
 				for i := len(str) - 1; i >= 0; i-- {
 					if str[i] == '.' {
 						return pathIn[0:i], pathIn[i:]
@@ -217,12 +230,12 @@ func main() {
 			}(pathIn)
 			if name == "" {
 				fmt.Printf("No file type specified for %s. Aborting.\n", pathIn)
-				return
+				return nil, err
 			}
 			pathOut = name + "_stego" + ext
 		}
 	} else {
-		if fi.IsDir() {
+		if fileInfo.IsDir() {
 			os.Mkdir(pathOut, os.ModePerm)
 		} else {
 			os.Create(pathOut)
@@ -231,67 +244,46 @@ func main() {
 		if verifyPermErr != nil {
 			fmt.Println("No output path was specified. Unable to create a new file/directory", pathOut, "aborting.")
 			fmt.Println(verifyPermErr.Error())
+			return nil, err
+		}
+	}
+	return fileInfo, err
+}
+
+func main() {
+	if _, err := flags.Parse(&opts); err != nil {
+		fmt.Println("")
+		printHelp()
+		return
+	}
+
+	if opts.MsgLen == 0 {
+		switch Action {
+		case encodeAction, benchAction:
+			opts.MsgLen = len(opts.Msg) * 32
+			fmt.Printf("Length of a message: %d. Use it for decoding.\n", opts.MsgLen)
+		default:
+			fmt.Println("Specify length of a message!")
 			return
 		}
+	}
+
+	fileInfo, err := createDir()
+	if err != nil {
+		fmt.Println(err.Error())
+		return
 	}
 
 	switch Action {
 	case benchAction:
 		fallthrough
 	case encodeAction:
-		if !fi.IsDir() {
-			if err := fileStego.EncodeFile(pathIn, pathOut, opts.Msg, opts.Pass, opts.MsgLen, opts.Robust, -opts.Robust); err != nil {
-				fmt.Printf("Error: %s for %s\n", err.Error(), pathIn)
-			} else {
-				fmt.Println("Message encoded.")
-			}
-		} else {
-			if Msgs, errs, err := concRun(encodeAction, pathIn, pathOut); err != nil {
-				fmt.Println(err)
-			} else {
-				errCount := 0
-				for i := 0; i < len(Msgs); i++ {
-					if i < len(errs) && errs[i] != nil {
-						fmt.Printf("Error: %s\n", errs[i].Error())
-						errCount++
-					}
-				}
-				if errCount == 0 {
-					fmt.Println("All messages encoded.")
-				}
-			}
-		}
+		runEncode(fileInfo)
 		if Action != benchAction {
 			break
 		}
 		fallthrough
 	case decodeAction:
-		if Action == benchAction {
-			pathIn = pathOut
-		}
-		if !fi.IsDir() {
-			if MsgDecoded, err := fileStego.DecodeFile(pathIn, opts.Pass, opts.MsgLen); err != nil {
-				fmt.Printf("Error: %s for %s\n", err.Error(), pathIn)
-			} else {
-				fmt.Printf("%s\n", MsgDecoded)
-			}
-		} else {
-			if MsgsDecoded, errs, err := concRun(decodeAction, pathIn, pathOut); err != nil {
-				fmt.Println(err)
-			} else {
-				fList, err := ioutil.ReadDir(pathIn)
-				if err != nil {
-					fmt.Println(err.Error())
-					return
-				}
-				for i := 0; i < len(MsgsDecoded); i++ {
-					if i < len(errs) && errs[i] != nil {
-						fmt.Printf("Error: %s for %s\n", errs[i].Error(), pathIn)
-					} else {
-						fmt.Printf("[%s]\t\"%s\"\n", fList[i].Name(), MsgsDecoded[i])
-					}
-				}
-			}
-		}
+		runDecode(fileInfo)
 	}
 }
