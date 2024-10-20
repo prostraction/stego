@@ -2,11 +2,7 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
-	"runtime"
-	"stego/internal/fileStego"
-	"sync"
 
 	flags "github.com/jessevdk/go-flags"
 )
@@ -42,214 +38,6 @@ func printHelp() {
 	p.WriteHelp(os.Stdout)
 }
 
-func fillArgs(args []string) (err error) {
-	for i := 0; i < len(args); i++ {
-		//switch args[i] {
-		/*
-			case "-m":
-				if i+1 < len(args) {
-					Msg = args[i+1]
-					i++
-				} else {
-					return fmt.Errorf("%s requeires an argument", args[i])
-				}
-			case "-p":
-				if i+1 < len(args) {
-					pathIn = args[i+1]
-					i++
-				} else {
-					return fmt.Errorf("%s requeires an argument", args[i])
-				}
-			case "-o":
-				if i+1 < len(args) {
-					pathOut = args[i+1]
-					i++
-				} else {
-					return fmt.Errorf("%s requeires an argument", args[i])
-				}
-			case "-r":
-				if i+1 < len(args) {
-					r, err := strconv.Atoi(args[i+1])
-					if err != nil {
-						return err
-					} else {
-						Robust = r
-					}
-					i++
-				} else {
-					return fmt.Errorf("%s requeires an argument", args[i])
-				}
-			case "-l":
-				if i+1 < len(args) {
-					l, err := strconv.Atoi(args[i+1])
-					if err != nil {
-						return err
-					} else {
-						if l < 1 {
-							return fmt.Errorf("%s can`t be <= 0", args[i])
-						}
-						MsgLen = l
-					}
-					i++
-				} else {
-					return fmt.Errorf("%s requeires an argument", args[i])
-				}
-			case "-d":
-				Action = decodeAction
-			case "-e":
-				Action = encodeAction
-			case "-b":
-				Action = benchAction
-			default:
-				if i > 0 {
-					return fmt.Errorf("%s unknown argument", args[i])
-				}
-		*/
-		//}
-	}
-	return nil
-}
-
-func concRun(procAction int, dirIn string, dirOut string) ([]string, []error, error) {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-	fList, err := ioutil.ReadDir(dirIn)
-	if err != nil {
-		return nil, nil, err
-	}
-	work := make(chan int)
-	wait := sync.WaitGroup{}
-	stackValue := make([]string, len(fList))
-	stackNames := make([]int, len(fList))
-	stackError := make([]error, len(fList))
-	for i := 0; i < len(fList); i++ {
-		stackNames[i] = i
-	}
-	for cpu := 0; cpu < runtime.NumCPU(); cpu++ {
-		wait.Add(1)
-		go func() {
-			defer wait.Done()
-			for i := range work {
-				switch procAction {
-				case encodeAction:
-					stackError[i] = fileStego.EncodeFile(dirIn+"//"+fList[i].Name(), dirOut+"//"+fList[i].Name(), opts.Msg, opts.Pass, opts.MsgLen, opts.Robust, -opts.Robust)
-				case decodeAction:
-					stackValue[i], stackError[i] = fileStego.DecodeFile(dirIn+"//"+fList[i].Name(), opts.Pass, opts.MsgLen)
-				}
-			}
-		}()
-	}
-	go func() {
-		for _, s := range stackNames {
-			work <- s
-		}
-		close(work)
-	}()
-	wait.Wait()
-	return stackValue, stackError, nil
-}
-
-func runEncode(fileInfo os.FileInfo) {
-	if !fileInfo.IsDir() {
-		if err := fileStego.EncodeFile(pathIn, pathOut, opts.Msg, opts.Pass, opts.MsgLen, opts.Robust, -opts.Robust); err != nil {
-			fmt.Printf("Error: %s for %s\n", err.Error(), pathIn)
-		} else {
-			fmt.Println("Message encoded.")
-		}
-	} else {
-		if Msgs, errs, err := concRun(encodeAction, pathIn, pathOut); err != nil {
-			fmt.Println(err)
-		} else {
-			errCount := 0
-			for i := 0; i < len(Msgs); i++ {
-				if i < len(errs) && errs[i] != nil {
-					fmt.Printf("Error: %s\n", errs[i].Error())
-					errCount++
-				}
-			}
-			if errCount == 0 {
-				fmt.Println("All messages encoded.")
-			}
-		}
-	}
-}
-
-func runDecode(fileInfo os.FileInfo) {
-	if Action == benchAction {
-		pathIn = pathOut
-	}
-	if !fileInfo.IsDir() {
-		if MsgDecoded, err := fileStego.DecodeFile(pathIn, opts.Pass, opts.MsgLen); err != nil {
-			fmt.Printf("Error: %s for %s\n", err.Error(), pathIn)
-		} else {
-			fmt.Printf("%s\n", MsgDecoded)
-		}
-	} else {
-		if MsgsDecoded, errs, err := concRun(decodeAction, pathIn, pathOut); err != nil {
-			fmt.Println(err)
-		} else {
-			fList, err := ioutil.ReadDir(pathIn)
-			if err != nil {
-				fmt.Println(err.Error())
-				return
-			}
-			for i := 0; i < len(MsgsDecoded); i++ {
-				if i < len(errs) && errs[i] != nil {
-					fmt.Printf("Error: %s for %s\n", errs[i].Error(), pathIn)
-				} else {
-					fmt.Printf("[%s]\t\"%s\"\n", fList[i].Name(), MsgsDecoded[i])
-				}
-			}
-		}
-	}
-}
-
-func createDir() (os.FileInfo, error) {
-	fileInfo, err := os.Stat(pathIn)
-	if err != nil {
-		fmt.Println(err.Error())
-		return nil, err
-	}
-	if pathOut == "" {
-		if fileInfo.IsDir() {
-			pathOut = fileInfo.Name() + "_stego"
-			os.Mkdir(pathOut, os.ModePerm)
-			_, verifyPermErr := os.Stat(pathOut)
-			if verifyPermErr != nil {
-				fmt.Println("No output directory was specified. Unable to create a new directory", pathOut, "aborting.")
-				fmt.Println(verifyPermErr.Error())
-				return nil, err
-			}
-		} else {
-			name, ext := func(str string) (string, string) {
-				for i := len(str) - 1; i >= 0; i-- {
-					if str[i] == '.' {
-						return pathIn[0:i], pathIn[i:]
-					}
-				}
-				return "", ""
-			}(pathIn)
-			if name == "" {
-				fmt.Printf("No file type specified for %s. Aborting.\n", pathIn)
-				return nil, err
-			}
-			pathOut = name + "_stego" + ext
-		}
-	} else {
-		if fileInfo.IsDir() {
-			os.Mkdir(pathOut, os.ModePerm)
-		} else {
-			os.Create(pathOut)
-		}
-		_, verifyPermErr := os.Stat(pathOut)
-		if verifyPermErr != nil {
-			fmt.Println("No output path was specified. Unable to create a new file/directory", pathOut, "aborting.")
-			fmt.Println(verifyPermErr.Error())
-			return nil, err
-		}
-	}
-	return fileInfo, err
-}
-
 func main() {
 	if _, err := flags.Parse(&opts); err != nil {
 		fmt.Println("")
@@ -268,7 +56,7 @@ func main() {
 		}
 	}
 
-	fileInfo, err := createDir()
+	fileInfo, err := CreateDir()
 	if err != nil {
 		fmt.Println(err.Error())
 		return
@@ -278,12 +66,12 @@ func main() {
 	case benchAction:
 		fallthrough
 	case encodeAction:
-		runEncode(fileInfo)
+		runFileOperation(fileInfo, "encode")
 		if Action != benchAction {
 			break
 		}
 		fallthrough
 	case decodeAction:
-		runDecode(fileInfo)
+		runFileOperation(fileInfo, "decode")
 	}
 }
