@@ -30,9 +30,9 @@ func concRun(procAction int, dirIn string, dirOut string) ([]string, []error, er
 			for i := range work {
 				switch procAction {
 				case encodeAction:
-					stackError[i] = fileStego.EncodeFile(dirIn+"//"+fList[i].Name(), dirOut+"//"+fList[i].Name(), opts.Msg, opts.Pass, opts.MsgLen, opts.Robust, -opts.Robust)
+					stackError[i] = fileStego.EncodeFile(dirIn+"//"+fList[i].Name(), dirOut+"//"+fList[i].Name(), Opts.Msg, Opts.Pass, Opts.MsgLen, Opts.Robust, -Opts.Robust)
 				case decodeAction:
-					stackValue[i], stackError[i] = fileStego.DecodeFile(dirIn+"//"+fList[i].Name(), opts.Pass, opts.MsgLen)
+					stackValue[i], stackError[i] = fileStego.DecodeFile(dirIn+"//"+fList[i].Name(), Opts.Pass, Opts.MsgLen)
 				}
 			}
 		}()
@@ -48,33 +48,36 @@ func concRun(procAction int, dirIn string, dirOut string) ([]string, []error, er
 }
 
 func runFileOperation(fileInfo os.FileInfo, action string) {
+	fmt.Println(action)
 	if Action == benchAction && action == "decode" {
-		pathIn = pathOut
+		Opts.PathIn = Opts.PathOut
 	}
 
 	if !fileInfo.IsDir() {
 		if action == "encode" {
-			if err := fileStego.EncodeFile(pathIn, pathOut, opts.Msg, opts.Pass, opts.MsgLen, opts.Robust, -opts.Robust); err != nil {
-				fmt.Printf("Error: %s for %s\n", err.Error(), pathIn)
+			fmt.Println(Opts.PathOut)
+			if err := fileStego.EncodeFile(Opts.PathIn, Opts.PathOut, Opts.Msg, Opts.Pass, Opts.MsgLen, Opts.Robust, -Opts.Robust); err != nil {
+				fmt.Printf("Error: %s for %s\n", err.Error(), Opts.PathIn)
 			} else {
 				fmt.Println("Message encoded.")
 			}
 		} else if action == "decode" {
-			if MsgDecoded, err := fileStego.DecodeFile(pathIn, opts.Pass, opts.MsgLen); err != nil {
-				fmt.Printf("Error: %s for %s\n", err.Error(), pathIn)
+			if MsgDecoded, err := fileStego.DecodeFile(Opts.PathIn, Opts.Pass, Opts.MsgLen); err != nil {
+				fmt.Printf("Error: %s for %s\n", err.Error(), Opts.PathIn)
 			} else {
 				fmt.Printf("%s\n", MsgDecoded)
 			}
 		}
 	} else {
+		fmt.Println(Opts.PathIn, Opts.PathOut)
 		var Msgs []string
 		var errs []error
 		var err error
 
 		if action == "encode" {
-			Msgs, errs, err = concRun(encodeAction, pathIn, pathOut)
+			Msgs, errs, err = concRun(encodeAction, Opts.PathIn, Opts.PathOut)
 		} else {
-			Msgs, errs, err = concRun(decodeAction, pathIn, pathOut)
+			Msgs, errs, err = concRun(decodeAction, Opts.PathIn, Opts.PathOut)
 		}
 
 		if err != nil {
@@ -82,7 +85,7 @@ func runFileOperation(fileInfo os.FileInfo, action string) {
 			return
 		}
 
-		fList, err := ioutil.ReadDir(pathIn)
+		fList, err := ioutil.ReadDir(Opts.PathIn)
 		if err != nil {
 			fmt.Println(err.Error())
 			return
@@ -91,7 +94,7 @@ func runFileOperation(fileInfo os.FileInfo, action string) {
 		errCount := 0
 		for i := 0; i < len(Msgs); i++ {
 			if i < len(errs) && errs[i] != nil {
-				fmt.Printf("Error: %s for %s\n", errs[i].Error(), pathIn)
+				fmt.Printf("Error: %s for %s\n", errs[i].Error(), Opts.PathIn)
 				errCount++
 			} else if action == "decode" {
 				fmt.Printf("[%s]\t\"%s\"\n", fList[i].Name(), Msgs[i])
@@ -105,53 +108,57 @@ func runFileOperation(fileInfo os.FileInfo, action string) {
 }
 
 func CreateDir() (os.FileInfo, error) {
-	fileInfo, err := os.Stat(pathIn)
+	fileInfo, err := os.Stat(Opts.PathIn)
 	if err != nil {
-		return nil, fmt.Errorf("error stating path: %w", err)
+		return nil, fmt.Errorf("error stating path: %w (%s)", err, Opts.PathIn)
 	}
 
-	if pathOut == "" {
+	if Opts.PathOut == "" {
 		if fileInfo.IsDir() {
 			return createStegoDir(fileInfo.Name())
 		}
-		return createStegoFile(pathIn)
+		return createStegoFile(Opts.PathIn)
 	}
 
 	return createOutputPath(fileInfo)
 }
 
 func createStegoDir(dirName string) (os.FileInfo, error) {
-	pathOut = dirName + "_stego"
-	if err := os.Mkdir(pathOut, os.ModePerm); err != nil {
-		return nil, fmt.Errorf("unable to create directory %s: %w", pathOut, err)
+	Opts.PathOut = dirName + "_stego"
+	err := os.Mkdir(Opts.PathOut, os.ModePerm)
+	if err != nil {
+		if os.IsExist(err) {
+			return os.Stat(Opts.PathOut)
+		}
+		return nil, fmt.Errorf("unable to create directory %s: %w", Opts.PathOut, err)
 	}
-	return os.Stat(pathOut)
+	return os.Stat(Opts.PathOut)
 }
 
-func createStegoFile(pathIn string) (os.FileInfo, error) {
-	name, ext := splitFileName(pathIn)
+func createStegoFile(PathIn string) (os.FileInfo, error) {
+	name, ext := splitFileName(Opts.PathIn)
 	if name == "" {
-		return nil, fmt.Errorf("no file type specified for %s. Aborting.", pathIn)
+		return nil, fmt.Errorf("no file type specified for %s. Aborting.", Opts.PathIn)
 	}
-	pathOut = name + "_stego" + ext
-	if _, err := os.Create(pathOut); err != nil {
-		return nil, fmt.Errorf("unable to create file %s: %w", pathOut, err)
+	Opts.PathOut = name + "_stego" + ext
+	if _, err := os.Create(Opts.PathOut); err != nil {
+		return nil, fmt.Errorf("unable to create file %s: %w", Opts.PathOut, err)
 	}
-	return os.Stat(pathOut)
+	return os.Stat(Opts.PathOut)
 }
 
 func createOutputPath(fileInfo os.FileInfo) (os.FileInfo, error) {
 	if fileInfo.IsDir() {
-		if err := os.Mkdir(pathOut, os.ModePerm); err != nil {
-			return nil, fmt.Errorf("unable to create directory %s: %w", pathOut, err)
+		if err := os.Mkdir(Opts.PathOut, os.ModePerm); err != nil {
+			return nil, fmt.Errorf("unable to create directory %s: %w", Opts.PathOut, err)
 		}
 	} else {
-		if _, err := os.Create(pathOut); err != nil {
-			return nil, fmt.Errorf("unable to create file %s: %w", pathOut, err)
+		if _, err := os.Create(Opts.PathOut); err != nil {
+			return nil, fmt.Errorf("unable to create file %s: %w", Opts.PathOut, err)
 		}
 	}
 
-	return os.Stat(pathOut)
+	return os.Stat(Opts.PathOut)
 }
 
 func splitFileName(filePath string) (string, string) {

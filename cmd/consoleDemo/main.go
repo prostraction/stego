@@ -7,7 +7,7 @@ import (
 	flags "github.com/jessevdk/go-flags"
 )
 
-var opts struct {
+var Opts struct {
 	Pass    string `short:"p" long:"pass" default:"abcdefghijklmnopqrstuvwxyz" required:"true" description:"Password is just any letters combination of any size and used for encoding/decoding for this file. It MUST BE the same for encoding and decoding of one image."`
 	Msg     string `short:"m" long:"message" required:"true" description:"Message which should be encoded (or decoding verification, not nessesary)."`
 	MsgLen  int    `short:"l" long:"len" required:"true" description:"Length of message. MUST BE known to decoder and it's equal to 1 Msg's symbol = 32 bits."`
@@ -26,30 +26,30 @@ const (
 
 var Action = decodeAction
 
-// Input file/dir
-var pathIn = ""
-
-// Output file/dir
-var pathOut = ""
-
 func printHelp() {
 	var options flags.Options = 1
-	p := flags.NewParser(&opts, options)
+	p := flags.NewParser(&Opts, options)
 	p.WriteHelp(os.Stdout)
 }
 
 func main() {
-	if _, err := flags.Parse(&opts); err != nil {
+	if _, err := flags.Parse(&Opts); err != nil {
 		fmt.Println("")
 		printHelp()
 		return
 	}
 
-	if opts.MsgLen == 0 {
+	switch (Opts.Action) {
+		case "b": Action = benchAction
+		case "e": Action = encodeAction
+		case "d": Action = decodeAction
+	}
+
+	if Opts.MsgLen == 0 {
 		switch Action {
 		case encodeAction, benchAction:
-			opts.MsgLen = len(opts.Msg) * 32
-			fmt.Printf("Length of a message: %d. Use it for decoding.\n", opts.MsgLen)
+			Opts.MsgLen = len(Opts.Msg) * 32
+			fmt.Printf("Length of a message: %d. Use it for decoding.\n", Opts.MsgLen)
 		default:
 			fmt.Println("Specify length of a message!")
 			return
@@ -61,6 +61,8 @@ func main() {
 		fmt.Println(err.Error())
 		return
 	}
+
+	fmt.Println("called ",  Action)
 
 	switch Action {
 	case benchAction:

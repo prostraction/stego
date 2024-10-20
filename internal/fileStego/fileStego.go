@@ -11,6 +11,7 @@ import (
 	"stego/pkg/embedding"
 	"strings"
 	"sync"
+	"fmt"
 
 	"github.com/edwvee/exiffix"
 )
@@ -27,10 +28,12 @@ func openImage(path string) (img image.Image, err error) {
 		fallthrough
 	case ".jpg":
 		img, _, err = exiffix.Decode(file)
+	case ".JPG":
+		img, _, err = exiffix.Decode(file)
 	case ".png":
 		img, err = png.Decode(file)
 	default:
-		return nil, errors.New("wrong type of file")
+		return nil, errors.New("wrong type of file: " + path)
 	}
 	return
 }
@@ -54,6 +57,8 @@ func writeImage(path string, img *image.RGBA) error {
 }
 
 func EncodeFile(pathIn string, pathOut string, encodedWord string, pass string, encodedWordLen int, addMod int, negMod int) error {
+	fmt.Println(pathOut)
+
 	img, err := openImage(pathIn)
 	if err != nil {
 		return err
@@ -90,6 +95,7 @@ func EncodeFile(pathIn string, pathOut string, encodedWord string, pass string, 
 }
 
 func DecodeFile(path string, pass string, encodedWordLen int) (string, error) {
+	fmt.Println(path)
 	img, err := openImage(path)
 	if err != nil {
 		return "", err
