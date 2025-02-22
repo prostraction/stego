@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"runtime"
-	"stego/internal/fileStego"
+	"stego/internal/stego_loader"
 	"sync"
 )
 
@@ -30,9 +30,9 @@ func concRun(procAction int, dirIn string, dirOut string) ([]string, []error, er
 			for i := range work {
 				switch procAction {
 				case encodeAction:
-					stackError[i] = fileStego.EncodeFile(dirIn+"//"+fList[i].Name(), dirOut+"//"+fList[i].Name(), opts.Msg, opts.Pass, opts.MsgLen, opts.Robust, -opts.Robust)
+					stackError[i] = stego_loader.EncodeFile(dirIn+"//"+fList[i].Name(), dirOut+"//"+fList[i].Name(), opts.Msg, opts.Pass, opts.MsgLen, opts.Robust, -opts.Robust)
 				case decodeAction:
-					stackValue[i], stackError[i] = fileStego.DecodeFile(dirIn+"//"+fList[i].Name(), opts.Pass, opts.MsgLen)
+					stackValue[i], stackError[i] = stego_loader.DecodeFile(dirIn+"//"+fList[i].Name(), opts.Pass, opts.MsgLen)
 				}
 			}
 		}()
@@ -56,13 +56,13 @@ func runFileOperation(fileInfo os.FileInfo, action string) {
 	if !fileInfo.IsDir() {
 		if action == "encode" {
 			fmt.Println(opts.PathOut)
-			if err := fileStego.EncodeFile(opts.PathIn, opts.PathOut, opts.Msg, opts.Pass, opts.MsgLen, opts.Robust, -opts.Robust); err != nil {
+			if err := stego_loader.EncodeFile(opts.PathIn, opts.PathOut, opts.Msg, opts.Pass, opts.MsgLen, opts.Robust, -opts.Robust); err != nil {
 				fmt.Printf("Error: %s for %s\n", err.Error(), opts.PathIn)
 			} else {
 				fmt.Println("Message encoded.")
 			}
 		} else if action == "decode" {
-			if MsgDecoded, err := fileStego.DecodeFile(opts.PathIn, opts.Pass, opts.MsgLen); err != nil {
+			if MsgDecoded, err := stego_loader.DecodeFile(opts.PathIn, opts.Pass, opts.MsgLen); err != nil {
 				fmt.Printf("Error: %s for %s\n", err.Error(), opts.PathIn)
 			} else {
 				fmt.Printf("%s\n", MsgDecoded)
