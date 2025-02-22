@@ -1,15 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" type="text/css" href="./styles.css"/>
+    <link rel="stylesheet" type="text/css" href="./styles.css" />
     <title>Stego</title>
 </head>
+
 <body>
     <div class="container">
         <h1>Stego</h1>
-        
+
         <div class="switch-container">
             <label class="switch-label">Select Input Type:</label>
             <input type="radio" name="input-type" value="image" checked> Image
@@ -20,25 +22,30 @@
             <div class="form-group">
                 <label for="pass">Password:</label>
                 <input type="text" id="pass" name="pass" value="abcdefghijklmnopqrstuvwxyz" required>
-                <div class="description">Password is just any letters combination of any size and used for encoding/decoding for this file. It MUST BE the same for encoding and decoding of one image.</div>
+                <div class="description">Password is just any letters combination of any size and used for
+                    encoding/decoding for this file. It MUST BE the same for encoding and decoding of one image.</div>
             </div>
 
             <div class="form-group">
                 <label for="message">Message:</label>
                 <input type="text" id="message" name="message">
-                <div class="description">Message which should be encoded (or decoding verification, not necessary).</div>
+                <div class="description">Message which should be encoded (or decoding verification, not necessary).
+                </div>
             </div>
 
             <div class="form-group">
                 <label for="msglen">Message Length:</label>
                 <input type="number" id="msglen" name="msglen" required>
-                <div class="description">Length of message. MUST BE known to decoder and it's equal to 1 Msg's symbol = 32 bits.</div>
+                <div class="description">Length of message. MUST BE known to decoder and it's equal to 1 Msg's symbol =
+                    32 bits.</div>
             </div>
 
             <div class="form-group">
                 <label for="robust">Robust:</label>
                 <input type="number" id="robust" name="robust" value="20" required>
-                <div class="description">The main parameter of encoding. More Robust cause more visible hidden message, but it is more stable for compression. Value 20 is fine for most cases. 50 is visible, but image is not corrupted.</div>
+                <div class="description">The main parameter of encoding. More Robust cause more visible hidden message,
+                    but it is more stable for compression. Value 20 is fine for most cases. 50 is visible, but image is
+                    not corrupted.</div>
             </div>
 
             <div class="form-group">
@@ -72,4 +79,5 @@
     </div>
     <script type="text/javascript" src="index.js"></script>
 </body>
+
 </html>

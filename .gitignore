@@ -1,7 +1,5 @@
 cmd/console/demo_images
 cmd/console/demo_images_stego
 
-internal/fileStego/test_images
-internal/fileStego/test_images_stego
-
-pkg/embedding/test_images
+internal/stego_loader/test_images
+internal/stego_loader/test_images_stego
