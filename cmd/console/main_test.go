@@ -2,6 +2,12 @@ package main
 
 import (
 	"fmt"
+	"image"
+	"image/color"
+	"image/jpeg"
+	"math/rand"
+	"os"
+	"strconv"
 	"testing"
 )
 
@@ -20,14 +26,40 @@ import (
 
 */
 
+func TestCreateTestFiles(t *testing.T) {
+	fmt.Println("Test: CreateTestFiles is running...")
+
+	for i := 0; i < 100; i++ {
+		X := 87 + rand.Intn(711)
+		Y := 23 + rand.Intn(933)
+		img := image.NewRGBA(image.Rectangle{image.Point{0, 0}, image.Point{X, Y}})
+		for x := 0; x < X; x++ {
+			for y := 0; y < Y; y++ {
+				img.Set(x, y, color.RGBA64{uint16(10000 + rand.Intn(40000)), uint16(10000 + rand.Intn(40000)), uint16(10000 + rand.Intn(40000)), 255})
+			}
+		}
+
+		os.Mkdir("test_images", os.ModePerm)
+		f, err := os.Create("test_images/test" + strconv.Itoa(i) + ".jpg")
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		jpeg.Encode(f, img, nil)
+		f.Close()
+	}
+	fmt.Println("Test: CreateTestFiles done.")
+}
+
 func TestApp(t *testing.T) {
 	opts.Pass = "sdflghdfjklghdfkjghldksfgsdfgds"
 	opts.Msg = "Testing for app working!"
 	opts.MsgLen = len(opts.Msg) * 32
 	opts.Robust = 30
 	Action = benchAction
-	opts.PathIn = "demo_images"
-	opts.PathOut = "demo_images_stego"
+	opts.PathIn = "test_images"
+	opts.PathOut = "test_images_stego"
 
 	fileInfo, err := CreateDir()
 	if err != nil {
