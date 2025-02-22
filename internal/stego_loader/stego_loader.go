@@ -1,11 +1,11 @@
 package stego_loader
 
 import (
-	"stego/internal/stego"
+	"fmt"
 	"image"
 	"image/draw"
+	"stego/internal/stego_encoding"
 	"sync"
-	"fmt"
 )
 
 func EncodeFile(pathIn string, pathOut string, encodedWord string, pass string, encodedWordLen int, addMod int, negMod int) error {
@@ -29,7 +29,7 @@ func EncodeFile(pathIn string, pathOut string, encodedWord string, pass string, 
 		wg.Add(1)
 		go func(c int) {
 			defer wg.Done()
-			err = stego.Encode(imgRGBA, encodedWord, pass, encodedWordLen, addMod, negMod, c)
+			err = stego_encoding.Encode(imgRGBA, encodedWord, pass, encodedWordLen, addMod, negMod, c)
 		}(i)
 	}
 	go func() {
@@ -55,6 +55,6 @@ func DecodeFile(path string, pass string, encodedWordLen int) (string, error) {
 	b := img.Bounds()
 	imgRGBA := image.NewRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
 	draw.Draw(imgRGBA, imgRGBA.Bounds(), img, b.Min, draw.Src)
-	str, err := stego.Decode(imgRGBA, pass, encodedWordLen, 0)
+	str, err := stego_encoding.Decode(imgRGBA, pass, encodedWordLen, 0)
 	return str, err
 }

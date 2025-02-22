@@ -1,4 +1,4 @@
-package stego
+package stego_encoding
 
 import (
 	"fmt"
