@@ -1,0 +1,10 @@
+cmd/console/demo_images
+cmd/console/demo_images_stego
+
+cmd/console/test_images
+cmd/console/test_images_stego
+
+internal/stego_encoding/test_images
+
+internal/stego_loader/test_images
+internal/stego_loader/test_images_stego
