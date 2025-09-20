@@ -1,4 +1,4 @@
-package embedding
+package stego_encoding
 
 import (
 	"errors"

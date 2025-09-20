@@ -1,4 +1,4 @@
-package embedding
+package stego_encoding
 
 import (
 	"fmt"
@@ -134,9 +134,9 @@ func TestStegoRobust(t *testing.T) {
 			}
 		}
 		validatePercentAvg += validateBytes / float32(len(want)) * 100.
-		//if msg != want {
-		//	fmt.Println("[MSG] Loss = ", 100.*validateBytes/float32(len(want)), "%")
-		//}
+		if msg != want {
+			fmt.Println("[MSG] Loss = ", 100.*validateBytes/float32(len(want)), "%")
+		}
 	}
 	fmt.Println("Test: StegoRobust is finished with ", validatePercentAvg/float32(100), "% average stegomessage recovered.")
 }
