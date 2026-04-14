@@ -1,16 +1,17 @@
+// Package stego_loader provides high-level functions for encoding and decoding
+// messages in image files of various formats.
 package stego_loader
 
 import (
-	"fmt"
 	"image"
 	"image/draw"
 	"stego/internal/stego_encoding"
 	"sync"
 )
 
+// EncodeFile opens an image file at pathIn, embeds a message into it,
+// and saves the result to pathOut.
 func EncodeFile(pathIn string, pathOut string, encodedWord string, pass string, encodedWordLen int, addMod int, negMod int) error {
-	fmt.Println(pathOut)
-
 	img, err := openImage(pathIn)
 	if err != nil {
 		return err
@@ -19,35 +20,34 @@ func EncodeFile(pathIn string, pathOut string, encodedWord string, pass string, 
 	imgRGBA := image.NewRGBA(image.Rect(0, 0, b.Max.X, b.Max.Y))
 	draw.Draw(imgRGBA, imgRGBA.Bounds(), img, b.Min, draw.Src)
 
-	work := make(chan int)
 	wg := sync.WaitGroup{}
-	stack := make([]int, 3)
-	for i := 0; i < 3; i++ {
-		stack[i] = i
-	}
+	var encodeErr error
+	var once sync.Once
+
+	// Process 3 channels (R, G, B) in parallel
 	for i := 0; i < 3; i++ {
 		wg.Add(1)
 		go func(c int) {
 			defer wg.Done()
-			err = stego_encoding.Encode(imgRGBA, encodedWord, pass, encodedWordLen, addMod, negMod, c)
+			err := stego_encoding.Encode(imgRGBA, encodedWord, pass, encodedWordLen, addMod, negMod, c)
+			if err != nil {
+				once.Do(func() {
+					encodeErr = err
+				})
+			}
 		}(i)
 	}
-	go func() {
-		for _, s := range stack {
-			work <- s
-		}
-		close(work)
-	}()
 	wg.Wait()
-	if err != nil {
-		return err
+
+	if encodeErr != nil {
+		return encodeErr
 	}
-	writeImage(pathOut, imgRGBA)
-	return nil
+
+	return writeImage(pathOut, imgRGBA)
 }
 
+// DecodeFile opens an image file at path and extracts a hidden message from it.
 func DecodeFile(path string, pass string, encodedWordLen int) (string, error) {
-	fmt.Println(path)
 	img, err := openImage(path)
 	if err != nil {
 		return "", err

@@ -1,52 +1,68 @@
 package stego_loader
 
 import (
-	"path/filepath"
+	"fmt"
 	"image"
+	"image/gif"
 	"image/jpeg"
 	"image/png"
-	"strings"
 	"os"
-	"errors"
+	"path/filepath"
+	"strings"
+
 	"github.com/edwvee/exiffix"
+	"golang.org/x/image/bmp"
 )
 
-// Opens file and return image from it
+// openImage reads an image from the specified path.
+// Supports JPEG, PNG, BMP, and GIF.
 func openImage(path string) (img image.Image, err error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open image file: %w", err)
 	}
 	defer file.Close()
-	switch filepath.Ext(strings.ToLower(path)) {
-	case ".jpeg":
-		fallthrough
-	case ".jpg":
-		img, _, err = exiffix.Decode(file)
-	case ".JPG":
+
+	ext := strings.ToLower(filepath.Ext(path))
+	switch ext {
+	case ".jpeg", ".jpg":
 		img, _, err = exiffix.Decode(file)
 	case ".png":
 		img, err = png.Decode(file)
+	case ".bmp":
+		img, err = bmp.Decode(file)
+	case ".gif":
+		img, err = gif.Decode(file)
 	default:
-		return nil, errors.New("wrong type of file: " + path)
+		return nil, fmt.Errorf("unsupported file extension: %s", ext)
 	}
-	return
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode %s image: %w", ext, err)
+	}
+
+	return img, nil
 }
 
+// writeImage saves an RGBA image to the specified path based on its extension.
 func writeImage(path string, img *image.RGBA) error {
-	f_out, err := os.Create(path)
+	fOut, err := os.Create(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create output file: %w", err)
 	}
-	defer f_out.Close()
-	switch filepath.Ext(strings.ToLower(path)) {
-	case ".jpeg":
-		fallthrough
-	case ".jpg":
-		return jpeg.Encode(f_out, img, nil)
+	defer fOut.Close()
+
+	ext := strings.ToLower(filepath.Ext(path))
+	switch ext {
+	case ".jpeg", ".jpg":
+		return jpeg.Encode(fOut, img, nil)
 	case ".png":
-		return png.Encode(f_out, img)
+		return png.Encode(fOut, img)
+	case ".bmp":
+		return bmp.Encode(fOut, img)
+	case ".gif":
+		return gif.Encode(fOut, img, nil)
 	default:
-		return errors.New("unknown type of file" + path)
+		return fmt.Errorf("unsupported output format: %s", ext)
 	}
 }

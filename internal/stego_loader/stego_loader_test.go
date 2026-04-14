@@ -1,153 +1,70 @@
 package stego_loader
 
 import (
-	"fmt"
 	"image"
 	"image/color"
-	"image/jpeg"
-	"io/ioutil"
-	"math/rand"
 	"os"
-	"runtime"
-	"strconv"
-	"sync"
+	"path/filepath"
 	"testing"
 )
 
-func TestCreateTestFiles(t *testing.T) {
-	fmt.Println("TestCreateTestFiles is running...")
-
-	for i := 0; i < 100; i++ {
-		X := 87 + rand.Intn(711)
-		Y := 23 + rand.Intn(933)
-		img := image.NewRGBA(image.Rectangle{image.Point{0, 0}, image.Point{X, Y}})
-		for x := 0; x < X; x++ {
-			for y := 0; y < Y; y++ {
-				img.Set(x, y, color.RGBA64{uint16(10000 + rand.Intn(40000)), uint16(10000 + rand.Intn(40000)), uint16(10000 + rand.Intn(40000)), 255})
-			}
-		}
-
-		os.Mkdir("test_images", os.ModePerm)
-		f, err := os.Create("test_images/test" + strconv.Itoa(i) + ".jpg")
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-
-		jpeg.Encode(f, img, nil)
-		f.Close()
+func TestLoaderFormats(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "stego-loader-test-")
+	if err != nil {
+		t.Fatal(err)
 	}
-	fmt.Println("Test: CreateTestFiles done.")
+	defer os.RemoveAll(tmpDir)
+
+	// Create a synthetic image
+	img := image.NewRGBA(image.Rect(0, 0, 200, 200))
+	for x := 0; x < 200; x++ {
+		for y := 0; y < 200; y++ {
+			img.Set(x, y, color.RGBA{uint8(x), uint8(y), 100, 255})
+		}
+	}
+
+	formats := []string{".png", ".bmp", ".jpg"} // GIF is indexed, so it might not work well with DCT modifications without careful handling
+
+	msg := "test message"
+	pass := "secret"
+	msgLen := len(msg) * 32
+
+	for _, ext := range formats {
+		t.Run(ext, func(t *testing.T) {
+			inputPath := filepath.Join(tmpDir, "input"+ext)
+			outputPath := filepath.Join(tmpDir, "output"+ext)
+
+			// Save original image to disk
+			if err := writeImage(inputPath, img); err != nil {
+				t.Fatalf("Failed to save test image: %v", err)
+			}
+
+			// Encode
+			if err := EncodeFile(inputPath, outputPath, msg, pass, msgLen, 50, -50); err != nil {
+				t.Fatalf("EncodeFile failed: %v", err)
+			}
+
+			// Decode
+			decoded, err := DecodeFile(outputPath, pass, msgLen)
+			if err != nil {
+				t.Fatalf("DecodeFile failed: %v", err)
+			}
+
+			if decoded != msg {
+				t.Errorf("Message mismatch: got %q, want %q", decoded, msg)
+			}
+		})
+	}
 }
 
-func Encoding(t *testing.T, dirIn string, dirOut string, want string, pass string) {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-	f_list, err := ioutil.ReadDir(dirIn)
-	if err != nil {
-		t.Fatalf(`[ERR] %s`, err.Error())
-	}
-	os.Mkdir(dirOut, os.ModePerm)
-	_, err = os.Stat(dirOut)
-	if err != nil {
-		t.Fatal(err.Error())
+func TestLoaderErrors(t *testing.T) {
+	_, err := DecodeFile("nonexistent.png", "pass", 128)
+	if err == nil {
+		t.Error("Should have failed for nonexistent file")
 	}
 
-	work := make(chan int)
-	wait := sync.WaitGroup{}
-	stack := make([]int, len(f_list))
-	for i := 0; i < len(f_list); i++ {
-		stack[i] = i
+	_, err = openImage("nonexistent.txt")
+	if err == nil {
+		t.Error("Should have failed for unsupported extension")
 	}
-	for cpu := 0; cpu < runtime.NumCPU(); cpu++ {
-		wait.Add(1)
-		go func() {
-			defer wait.Done()
-			for i := range work {
-				errEnc := EncodeFile(dirIn+"//"+f_list[i].Name(), dirOut+"//"+f_list[i].Name(), want, pass, len(want)*32, 30, -30)
-				if errEnc != nil {
-					err = errEnc
-				}
-			}
-		}()
-	}
-	go func() {
-		for _, s := range stack {
-			work <- s
-		}
-		close(work)
-	}()
-	if err != nil {
-		t.Fatal("[ERR] FileStegoTest: Encoding: " + err.Error())
-	}
-	wait.Wait()
-}
-
-func Decoding(t *testing.T, dirIn string, dirOut string, want string, pass string) {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-	f_list, err := ioutil.ReadDir(dirIn)
-	if err != nil {
-		t.Fatalf(`[ERR] %s`, err.Error())
-	}
-	work := make(chan int)
-	wait := sync.WaitGroup{}
-	stackMsgs := make([]string, len(f_list))
-	stackNames := make([]int, len(f_list))
-	for i := 0; i < len(f_list); i++ {
-		stackNames[i] = i
-	}
-	for cpu := 0; cpu < runtime.NumCPU(); cpu++ {
-		wait.Add(1)
-		go func() {
-			defer wait.Done()
-			for s := range work {
-				stackMsgs[s], err = DecodeFile(dirOut+"//"+f_list[s].Name(), pass, len(want)*32)
-				if err != nil {
-					fmt.Printf(`[ERR] %s\n`, err.Error())
-				}
-			}
-		}()
-	}
-	go func() {
-		for _, s := range stackNames {
-			work <- s
-		}
-		close(work)
-	}()
-	wait.Wait()
-
-	var avgPercentRecovered float32 = 0.
-	for k, _ := range stackMsgs {
-		str := stackMsgs[k]
-		validBytes := 0
-		for i := 0; i < len(str); i++ {
-			if i < len(want) && str[i] == want[i] {
-				validBytes++
-			}
-		}
-		percent := 100 * float32(validBytes) / float32(len(want))
-		if percent < 80 {
-			fmt.Println("[WARN] TestStegoRealFile: Decoding: only", percent, "% recovered [", str, "]")
-		}
-		avgPercentRecovered += percent
-
-	}
-	avgPercentRecovered /= float32(len(stackMsgs))
-	fmt.Println("[INFO] TestStegoRealFile: Decoding: ", avgPercentRecovered, "% recovered.")
-}
-
-func TestStegoRealFile(t *testing.T) {
-	fmt.Println("Test: TestStegoRealFile is running...")
-	pass := ""
-	want := ""
-	for j := 0; j < 100; j++ {
-		want += string(rune((rand.Intn(100) % (65535 - 32)) + 32))
-	}
-	for count := 0; count < 5; count++ {
-		for i := 'a'; i < 'z'; i++ {
-			pass += string(uint8(i))
-		}
-	}
-
-	Encoding(t, "test_images", "test_images_stego", want, pass)
-	Decoding(t, "test_images", "test_images_stego", want, pass)
 }

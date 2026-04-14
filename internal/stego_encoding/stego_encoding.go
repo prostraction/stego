@@ -1,18 +1,37 @@
+// Package stego_encoding provides the core logic for embedding and extracting
+// messages in images using the Discrete Cosine Transform (DCT).
 package stego_encoding
 
 import (
 	"errors"
+	"fmt"
 	"image"
-	_ "image"
 	"stego/pkg/dct"
 )
 
+const (
+	// countValidIndexes is the number of DCT indices used for embedding data.
+	countValidIndexes = 25
+	// sizeOfBlock2D is the total number of coefficients in an 8x8 DCT block.
+	sizeOfBlock2D = 64
+	// sizeOfBlock1D is the dimension of one side of a DCT block.
+	sizeOfBlock1D = 8
+)
+
+// validIndexes are the specific DCT indices used to store message bits.
+// These are typically middle-frequency coefficients to balance robustness and visibility.
+var validIndexes = [countValidIndexes]int{7, 14, 15, 21, 22, 23, 28, 29, 30, 31, 35, 36, 37, 38, 42, 43, 44, 45, 48, 49, 50, 51, 55, 56, 57}
+
+// abs returns the absolute value of a generic integer or byte.
 func abs[T int | byte](value T) T {
 	if value < 0 {
 		return -value
 	}
 	return value
 }
+
+// StringToBoolArray converts a string into a slice of booleans (bits).
+// Each character is represented by 32 bits.
 func StringToBoolArray(value string) []bool {
 	if len(value) == 0 {
 		return nil
@@ -38,11 +57,12 @@ func StringToBoolArray(value string) []bool {
 			symbol = append(symbol, symbol[j])
 		}
 		array = append(array, symbol...)
-		symbol = nil
 	}
 	return array
 }
 
+// BoolArrayToString converts a slice of booleans (bits) back into a string.
+// Every 32 bits are converted into a single rune.
 func BoolArrayToString(value []bool) string {
 	if len(value) < 32 {
 		return ""
@@ -51,9 +71,6 @@ func BoolArrayToString(value []bool) string {
 	symbol := make([]bool, 0, 32)
 	count := 1
 	for i := 0; i < len(value); i++ {
-		if symbol == nil {
-			symbol = make([]bool, 0, 32)
-		}
 		symbol = append(symbol, value[i])
 
 		if count/32 == 1 {
@@ -66,7 +83,7 @@ func BoolArrayToString(value []bool) string {
 				c++
 			}
 			retString += string(r)
-			symbol = nil
+			symbol = make([]bool, 0, 32)
 			count = 0
 		}
 		count++
@@ -74,31 +91,32 @@ func BoolArrayToString(value []bool) string {
 	return retString
 }
 
+// Encode hides a message (encodedWord) into an image using DCT.
+// pass: password used to jitter the choice of DCT indices for better security.
+// encodedWordLen: expected total length of the message in bits.
+// addMod, negMod: robustness parameters applied to DCT coefficients.
+// channelSelected: the image channel (R=0, G=1, B=2) to embed the message in.
 func Encode(img *image.RGBA, encodedWord string, pass string, encodedWordLen int, addMod int, negMod int, channelSelected int) error {
-	bounds := (*img).Bounds()
+	bounds := img.Bounds()
 	if bounds.Max.X < 8 || bounds.Max.Y < 8 {
 		return errors.New("image resolution lower than 8x8")
 	}
 	if len(encodedWord) == 0 {
-		return errors.New("no stegomessage send to encode")
+		return errors.New("no stegomessage provided to encode")
 	}
-	if encodedWordLen == 0 {
-		return errors.New("no stegomessage send to encode")
+	if encodedWordLen <= 0 {
+		return fmt.Errorf("invalid encodedWordLen: %d", encodedWordLen)
 	}
 	if len(pass) == 0 {
-		return errors.New("no password send to encode")
+		return errors.New("no password provided to encode")
 	}
-	const countValidIndexes = 25
-	const sizeOfBlock2D = 64
-	const sizeOfBlock1D = 8
-	validIndexes := [countValidIndexes]int{7, 14, 15, 21, 22, 23, 28, 29, 30, 31, 35, 36, 37, 38, 42, 43, 44, 45, 48, 49, 50, 51, 55, 56, 57}
 
 	currentSymbol := 0
 	dctMatrix := make([]float32, sizeOfBlock2D)
 	boolEncoded := StringToBoolArray(encodedWord)
 
 	if len(boolEncoded) < encodedWordLen {
-		emptySlice := make([]bool, encodedWordLen-len(encodedWord))
+		emptySlice := make([]bool, encodedWordLen-len(boolEncoded))
 		boolEncoded = append(boolEncoded, emptySlice...)
 	}
 
@@ -116,7 +134,7 @@ func Encode(img *image.RGBA, encodedWord string, pass string, encodedWordLen int
 				pixelIndex3++
 				pixelIndex3 = validIndexes[pixelIndex3%countValidIndexes]
 			}
-			dct.MakeDCT(&dctMatrix, &(*img).Pix, x, y, bounds.Max.X, 4, int8(channelSelected))
+			dct.MakeDCT(&dctMatrix, &img.Pix, x, y, bounds.Max.X, 4, channelSelected)
 			if boolEncoded[currentSymbol%encodedWordLen] {
 				dctMatrix[pixelIndex1] = float32(addMod)
 				dctMatrix[pixelIndex2] = float32(addMod)
@@ -126,29 +144,28 @@ func Encode(img *image.RGBA, encodedWord string, pass string, encodedWordLen int
 				dctMatrix[pixelIndex2] = float32(negMod)
 				dctMatrix[pixelIndex3] = float32(addMod)
 			}
-			dct.MakeIDCT(&dctMatrix, &img.Pix, x, y, bounds.Max.X, 4, int8(channelSelected))
+			dct.MakeIDCT(&dctMatrix, &img.Pix, x, y, bounds.Max.X, 4, channelSelected)
 			currentSymbol++
 		}
 	}
 	return nil
 }
 
+// Decode extracts a hidden message from an image using DCT.
+// pass: password must match the one used during encoding.
+// encodedWordLen: length of the message in bits to extract.
+// channelSelected: the image channel to extract from.
 func Decode(img *image.RGBA, pass string, encodedWordLen int, channelSelected int) (string, error) {
-	bounds := (*img).Bounds()
+	bounds := img.Bounds()
 	if bounds.Max.X < 8 || bounds.Max.Y < 8 {
 		return "", errors.New("image resolution lower than 8x8")
 	}
-	if encodedWordLen == 0 {
-		return "", errors.New("no msg length send to decode")
+	if encodedWordLen <= 0 {
+		return "", fmt.Errorf("invalid msg length: %d", encodedWordLen)
 	}
 	if len(pass) == 0 {
-		return "", errors.New("no password send to decode")
+		return "", errors.New("no password provided to decode")
 	}
-
-	const countValidIndexes = 25
-	const sizeOfBlock2D = 64
-	const sizeOfBlock1D = 8
-	validIndexes := [countValidIndexes]int{7, 14, 15, 21, 22, 23, 28, 29, 30, 31, 35, 36, 37, 38, 42, 43, 44, 45, 48, 49, 50, 51, 55, 56, 57}
 
 	currentSymbol := 0
 	dctMatrix := make([]float32, sizeOfBlock2D)
@@ -175,7 +192,7 @@ func Decode(img *image.RGBA, pass string, encodedWordLen int, channelSelected in
 				pixelIndex3 = validIndexes[pixelIndex3%countValidIndexes]
 			}
 
-			dct.MakeDCT(&dctMatrix, &(*img).Pix, x, y, bounds.Max.X, 4, int8(channelSelected))
+			dct.MakeDCT(&dctMatrix, &img.Pix, x, y, bounds.Max.X, 4, channelSelected)
 			// Encoded '1'
 			if dctMatrix[pixelIndex3] <= dctMatrix[pixelIndex2] && dctMatrix[pixelIndex3] <= dctMatrix[pixelIndex1] {
 				codedWordCounter[currentSymbol%encodedWordLen]++
@@ -190,6 +207,7 @@ func Decode(img *image.RGBA, pass string, encodedWordLen int, channelSelected in
 		}
 	}
 	msg := BoolArrayToString(codedWordBool)
+	// Trim trailing null bytes
 	for i := len(msg) - 1; i >= 0; i-- {
 		if msg[i] == 0x00 {
 			for i >= 0 && msg[i] == 0x00 {
